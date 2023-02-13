@@ -17,6 +17,7 @@ library(vegan)
 library(limma)
 library(Biobase)
 library(ggrepel)
+library(shinythemes)
 
 
-runApp("~/Desktop/Rshiny App/")
+runApp("~/Desktop/MetaboPlot/")
