@@ -42,8 +42,8 @@ server <- function(input, output, session) {
       
     } else {
       
-      paste("<p>Control:", levels(groupIdentities$Group)[1], "</p>", 
-            "<p>Experimental:", levels(groupIdentities$Group)[2], "</p>")
+      paste("<p><b>Control:</b>", levels(groupIdentities$Group)[1], "</p>", 
+            "<p><b>Experimental:</b>", levels(groupIdentities$Group)[2], "</p>")
       
     }
     
@@ -172,57 +172,74 @@ server <- function(input, output, session) {
   })
   
   
-  observeEvent(input$heatmapButton, {
+  ptable <- reactive({
     
-    ptable <- reactive({
-      
-      req(workingDf)
-      
-      if (is.null(myData$groupIdentities_outliersRemoved)) {
-        
-        groupIdentities <- myData$groupIdentities
-        
-      } else {   groupIdentities <- myData$groupIdentities_outliersRemoved   }
-      
-      
-      workingDf <- cbind(key = c(paste0("met",seq(1:(length(rownames(workingDf)))))), workingDf)
-      key <<- workingDf[, 1:2]
-      workingDf$m.z <- NULL
-      
-      transdf <- as.data.frame(t(workingDf[, c(2:length(colnames(workingDf)))]))
-      transdf <- as.data.frame(sapply(transdf, as.numeric))
-      colnames(transdf) <- workingDf$key
-      rownames(transdf) <- rownames(groupIdentities)
-      
-      
-      # Create an alias for Groups so that we can call it in the p-table generation
-      groupIdentities$AutoGroup <- 0
-      groupIdentities$Group <- as.factor(groupIdentities$Group)
-      groupIdentities[which(groupIdentities$Group == levels(groupIdentities$Group)[1]),]$AutoGroup <- "groupOne"
-      groupIdentities[which(groupIdentities$Group == levels(groupIdentities$Group)[2]),]$AutoGroup <- "groupTwo"
-      transdf$Group <- groupIdentities$AutoGroup
-      transdf$Group <- as.factor(transdf$Group)
-      transdf <<- transdf
-      
-      #Create a table of pvalues 
-      ptable <- transdf %>% #select only a few columns to start with
-        gather(key = m.z, value = intensity, -Group) %>% #melt the data into a long format
-        group_by(Group, m.z) %>% #group intensities by metabolite and cohort
-        dplyr::summarize(intensity = list(intensity)) %>% #put the intensities for all samples in a cohort for a particular metabolite in one column
-        spread(Group, intensity) %>% #put data back into wide format
-        group_by(m.z) %>% #t test will be applied for each of these metabolites
-        dplyr::mutate(pvalue = t.test(unlist(groupOne), unlist(groupTwo))$p.value)
-      
-      
-      ptable$groupOne <- NULL
-      ptable$groupTwo <- NULL
-      
-      ptable
-      
-      
-    })
+    req(input$file1)
+    req(workingDf)
     
-    output$ptable <- renderTable({
+    if (is.null(myData$groupIdentities_outliersRemoved)) {
+      
+      groupIdentities <- myData$groupIdentities
+      
+    } else {   groupIdentities <- myData$groupIdentities_outliersRemoved   }
+    
+    
+    workingDf <- cbind(key = c(paste0("met",seq(1:(length(rownames(workingDf)))))), workingDf)
+    key <<- workingDf[, 1:2]
+    workingDf$m.z <- NULL
+    
+    transdf <- as.data.frame(t(workingDf[, c(2:length(colnames(workingDf)))]))
+    transdf <- as.data.frame(sapply(transdf, as.numeric))
+    colnames(transdf) <- workingDf$key
+    rownames(transdf) <- rownames(groupIdentities)
+    
+    
+    # Create an alias for Groups so that we can call it in the p-table generation
+    groupIdentities$AutoGroup <- 0
+    groupIdentities$Group <- as.factor(groupIdentities$Group)
+    groupIdentities[which(groupIdentities$Group == levels(groupIdentities$Group)[1]),]$AutoGroup <- "groupOne"
+    groupIdentities[which(groupIdentities$Group == levels(groupIdentities$Group)[2]),]$AutoGroup <- "groupTwo"
+    transdf$Group <- groupIdentities$AutoGroup
+    transdf$Group <- as.factor(transdf$Group)
+    transdf <<- transdf
+    
+    #Create a table of pvalues 
+    ptable <- transdf %>% #select only a few columns to start with
+      gather(key = m.z, value = intensity, -Group) %>% #melt the data into a long format
+      group_by(Group, m.z) %>% #group intensities by metabolite and cohort
+      dplyr::summarize(intensity = list(intensity)) %>% #put the intensities for all samples in a cohort for a particular metabolite in one column
+      spread(Group, intensity) %>% #put data back into wide format
+      group_by(m.z) %>% #t test will be applied for each of these metabolites
+      dplyr::mutate(pvalue = t.test(unlist(groupOne), unlist(groupTwo))$p.value)
+    
+    
+    ptable$groupOne <- NULL
+    ptable$groupTwo <- NULL
+    
+    ptable
+    
+    
+  })
+  
+  output$ptable <- renderTable({
+    
+    req(input$file1)
+    ptable <- req(ptable())
+    ptable <- merge(key[,1:2], ptable, by.y = "m.z", by.x ="key")
+    ptable <- ptable[order(ptable$pvalue),] #order by pvalue
+    ptable$key <- NULL
+    names(ptable) <- c("m.z", "pvalue")
+    ptable <- ptable[!duplicated(ptable),]
+    
+    head(ptable)
+    
+    
+  }, digits = -1)
+  
+  
+  output$downloadPtable <- downloadHandler(
+    filename = function(){paste(input$plotTitles, "- ptable.csv")}, 
+    content = function(fname){
       
       ptable <- req(ptable())
       ptable <- merge(key[,1:2], ptable, by.y = "m.z", by.x ="key")
@@ -230,27 +247,14 @@ server <- function(input, output, session) {
       ptable$key <- NULL
       names(ptable) <- c("m.z", "pvalue")
       ptable <- ptable[!duplicated(ptable),]
+      write.csv(ptable, fname, row.names = FALSE)
       
-      head(ptable)
-      
-      
-      })
+    }
+  )
+  
+  
+  observeEvent(input$heatmapButton, {
     
-    
-    output$downloadPtable <- downloadHandler(
-      filename = function(){paste(input$plotTitles, "- ptable.csv")}, 
-      content = function(fname){
-        
-        ptable <- req(ptable())
-        ptable <- merge(key[,1:2], ptable, by.y = "m.z", by.x ="key")
-        ptable <- ptable[order(ptable$pvalue),] #order by pvalue
-        ptable$key <- NULL
-        names(ptable) <- c("m.z", "pvalue")
-        ptable <- ptable[!duplicated(ptable),]
-        write.csv(ptable, fname, row.names = FALSE)
-        
-      }
-    )
     
     output$heatmap <- renderPlot({
       
@@ -394,36 +398,131 @@ server <- function(input, output, session) {
              color = "Enrichment")
       
       
-    })
+    }, height = 400)
     
   })
+  
+  
+  observeEvent(input$lassoButton, {
+    coefs <- reactive({
+      
+      y = transdf$Group
+      x = as.matrix(transdf[, 1:(length(transdf)-1)])
+      
+      cv_model <- cv.glmnet(scale(x), 
+                            y, 
+                            alpha = 1, 
+                            standardize = TRUE,
+                            nfolds = 10,
+                            family = "binomial")
+      
+      #find optimal lambda value that minimizes test MSE
+      best_lambda <- cv_model$lambda.min
+      
+      #produce plot of test MSE by lambda value
+      #plot(cv_model)
+      #plot(cv_model$glmnet.fit, col=blues9, xvar="lambda", label=F)
+      #abline(v=log(best_lambda), col="red")
+      #abline(v=log(cv_model$lambda.1se), col="red")
+      
+      best_model <- glmnet(scale(x), 
+                           y, 
+                           alpha = 1, 
+                           standardize = TRUE,
+                           lambda = best_lambda, 
+                           family = "binomial")
+      
+      
+      coef <- coef(best_model, s = best_model$lambda.min)
+      coefs <- data.frame("key" = coef@Dimnames[[1]][2:length(coef)], "Beta" = coef[2:length(coef)])
+      coefs <- merge(key, coefs, by = "key")
+      coefs$key <- NULL
+      coefs <- coefs[order(-coefs$Beta),]
+      
+    })
+    
+    output$LassoTable <- renderTable({
+      
+      coefs <- req(coefs())
+      head(coefs)
+      
+    }, digits = -1)
+    
+    output$downloadLasso <- downloadHandler(
+      filename = function(){paste(input$plotTitles, "- Lasso Coefficients.csv")}, 
+      content = function(fname){
+        req(coefs())
+        write.csv(coefs(), fname, row.names = FALSE)
+        
+      }
+    )
+    
+    output$LassoCoefficients <- renderPlot({
+      
+      coefs <- req(coefs())
+      
+      coefs <- coefs[abs(coefs$Beta) > 0, ]
+      coefs <- coefs[order(-abs(coefs$Beta)), ]
+      
+      g <- (ggplot(coefs, aes(x = reorder(m.z, Beta), y = Beta)) +
+              geom_bar(stat = "identity", 
+                       position = position_stack(),
+                       color = "white", 
+                       fill = "lightblue") +
+              ggtitle(input$plotTitles) +
+              coord_flip() +
+              ylab("Beta Coefficients") +
+              xlab("Input Variables") +
+              theme(plot.margin = unit(c(0.5,1.5,0.5,0.5), "cm")) +
+              theme(text = element_text(size = 15))) +
+        geom_hline(yintercept = 0)
+      
+      g
+      
+    }, height = 800)
+    
+  })
+
   
   IPS <- reactive({
     
-    req(input$file2)
-    
-    # Read metaboanalyst pathway hits output
-    IPS <- read.csv(input$file2$datapath)
-    IPS <- IPS[,1:6] # Keep only relevant columns
-    
-    # Calculate IPS value
-    IPS$Weighted_Metabolites <- ((IPS$Hits.sig + 1) ^ 2) + (IPS$Hits.total - IPS$Hits.sig)
-    IPS$Numerator <- IPS$Weighted_Metabolites / (IPS$Pathway.total * IPS$Expected)
-    IPS$Squared_P_Value <- IPS$FET ^ 2
-    IPS$IPS_Value <- IPS$Numerator / IPS$Squared_P_Value + 1
+    req(input$files2)
+    IPS <- data.frame(Pathway = character(),
+                      IPS = numeric(),
+                      `Log2(IPS)` = numeric(),
+                      ID = factor())
     
     
-    # Clean up (Keep only pathway name, IPS, and Map)
-    IPS <- IPS[,c(1,10)]
-    IPS$log2IPS <- log2(IPS$IPS_Value)
-    IPS <- IPS[order(IPS$IPS_Value), ]
-    names(IPS) <- c("Pathway", "IPS", "Log2(IPS)")
+    for(i in 1:length(input$files2[,1])) {
+      
+      IPSworking <- read.csv(input$files2[i,]$datapath)
+      IPSworking <- IPSworking[,1:6] # Keep only relevant columns
+      IPSworking$Weighted_Metabolites <- ((IPSworking$Hits.sig + 1) ^ 2) + (IPSworking$Hits.total - IPSworking$Hits.sig)
+      IPSworking$Numerator <- IPSworking$Weighted_Metabolites / (IPSworking$Pathway.total * IPSworking$Expected)
+      IPSworking$Squared_P_Value <- IPSworking$FET ^ 2
+      IPSworking$IPS_Value <- IPSworking$Numerator / IPSworking$Squared_P_Value + 1
+      
+      # Clean up (Keep only pathway name, IPS, and Map)
+      IPSworking <- IPSworking[,c(1,10)]
+      IPSworking$log2 <- log2(IPSworking$IPS_Value)
+      names(IPSworking) <- c("Pathway", "IPS", "Log2(IPS)")
+      IPSworking$ID <- input$files2[i,]$name
+      
+      IPS <- rbind(IPS, IPSworking)
+      
+    }
+    
     
     IPS <- IPS
     
+    
   })
   
-  output$IPS <- renderTable(req(IPS()))
+  output$IPS <- renderTable({
+    req(IPS())
+    head(IPS())
+    
+    })
   
   output$downloadIPS <- downloadHandler(
     filename = function(){paste("IPS table.csv")}, 
@@ -434,6 +533,36 @@ server <- function(input, output, session) {
     }
   )
   
+  
+  output$IPSHeatmap <- renderPlot({
+    
+    req(IPS())
+    IPS <- IPS()
+    
+    IPS$IPS <- NULL
+
+    #Long form
+    IPS <- IPS %>%
+      pivot_wider(names_from = ID,
+                  values_from = `Log2(IPS)`) %>%
+      as.data.frame()
+    
+    rownames(IPS) <- IPS$Pathway
+    IPS$Pathway <- NULL
+    
+    
+    pheatmap(IPS,
+             cluster_rows = F,
+             cluster_cols = F,
+             angle_col = 45,
+             fontsize_col = 8,
+             scale = "column",
+             )
+    
+    
+  }, height = 800)
+  
+
   
 }
 

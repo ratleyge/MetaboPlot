@@ -18,6 +18,9 @@ library(limma)
 library(Biobase)
 library(ggrepel)
 library(shinythemes)
+library(glmnet)
+library(glmnetUtils)
+library(caret)
 
 
 runApp("~/Desktop/MetaboPlot/")

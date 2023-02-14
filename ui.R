@@ -38,6 +38,10 @@ mystyle <- '
     height: auto !important;
   }
   
+  #volcanoPlot.shiny-plot-output.shiny-bound-output {
+    height: auto !important;
+  }
+  
 '
 
 
@@ -62,7 +66,7 @@ ui <- navbarPage(
            sidebarLayout(
              
              # Sidebar panel for inputs ----
-             sidebarPanel(
+             sidebarPanel(id = "form",
                
                h4("Data Upload"),
                
@@ -81,12 +85,15 @@ ui <- navbarPage(
                checkboxInput("ANOSIM", "Calculate ANOSIM statistic. This can add up to 10 min to the run time.", FALSE),
                actionButton("NMDS", "Generate NMDS"),
                
-               h4("P-table & Heatmap"),
+               h4("Heatmap"),
                numericInput("featureNumber", "Select top n features for heatmap:", 100),
                actionButton("heatmapButton", "Generate Heatmap"),
                
-               h4("Limma"),
+               h4("Limma & Volcano Plot"),
                actionButton("limmaButton", "Run Limma"),
+               
+               h4("Lasso"),
+               actionButton("lassoButton", "Select Features"),
                
                
              ),
@@ -108,6 +115,10 @@ ui <- navbarPage(
                
                actionButton("relevel", "Relevel groups"),
                
+               h3("P-table"),
+               tableOutput("ptable"),
+               downloadButton('downloadPtable',"Download P-table"),
+               
                h3("NMDS Plot"),
                p("Upload your data and select the ", em("Generate NMDS"), " button."),
                
@@ -124,19 +135,23 @@ ui <- navbarPage(
                ),
                
                
-               h3("P-table & Heatmap"),
+               h3("Heatmap"),
                p("Upload your data and select the ", em("Generate Heatmap"), " button."),
-               
-               tableOutput("ptable"),
-               downloadButton('downloadPtable',"Download P-table"),
-               
                plotOutput("heatmap"),
                
                
-               h3("Limma"),
+               h3("Limma & Volcano Plot"),
+               p("Upload your data and select the ", em("Run Limma"), " button."),
                tableOutput("toptable"),
                downloadButton('downloadToptable',"Download Top Table"),
                plotOutput("volcanoPlot"),
+               
+               h3("Lasso Feature Selection"),
+               p("Upload your data and select the ", em("Select Features"), " button."),
+               tableOutput("LassoTable"),
+               downloadButton('downloadLasso',"Download Lasso Table"),
+               plotOutput("LassoCoefficients"),
+
                
              )
            )
@@ -155,7 +170,7 @@ ui <- navbarPage(
                #textInput("plotTitles", "Type a title for your outputs:", value = "", width = NULL, placeholder = NULL),
                
                # Input: Select a file ----
-               fileInput("file2", "Upload mummichog pathway enrichment:",
+               fileInput("files2", "Upload mummichog pathway enrichment:",
                          multiple = TRUE,
                          accept = c("text/csv",
                                     "text/comma-separated-values,text/plain",
@@ -166,8 +181,26 @@ ui <- navbarPage(
              
              mainPanel(
                
+               h3("The Index of Pathway Significance"),
+               p(paste("The Index of Pathway Significance (IPS) is an in-house formula
+                       derived from five metrics provided by Metaboanalyst: 
+                       total number of metabolites in a metabolic pathway, the total number 
+                       of metabolite hits picked up from a sample, the number of significant 
+                       metabolite hits in a pathway, the expected number of total metabolite 
+                       hits in a sample, and FET, the p-value associated with a sample. 
+                       When considered together, they produce a single, easily comparable value 
+                       that is associated with differences between two treatments with respect to 
+                       a certain metabolic pathway. A higher IPS value indicates a greater difference 
+                       and can be used to rank either the metabolic pathways that are shared between two
+                       treatments, or the treatments that all exhibit that particular pathway. Assigning 
+                       a single value to each pathway also allows many comparisons to be condensed and 
+                       visualized in figures such as heat maps and metabolic pathway maps.")),
+               
+               h4("IPS Table Preview"),
                tableOutput("IPS"),
-               downloadButton('downloadIPS',"Download IPS"),
+               downloadButton('downloadIPS',"Download IPS Table"),
+               
+               plotOutput("IPSHeatmap"),
                
              )
            )
