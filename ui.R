@@ -1,9 +1,44 @@
 mystyle <- '
   body {
     padding-top: 70px !important;
-  }
-'
 
+  }
+  
+  #NMDS.shiny-plot-output.shiny-bound-output {
+    height: auto !important;
+  } 
+  
+  .navbar {
+    font-size: 20px !important;
+  }
+  
+  .navbar-brand {
+    font-size: 30px !important;
+  }
+  
+  .navbar-default {
+    background-color: #00425A !important;
+  }
+  
+  .about {
+    position: absolute;
+    top: 50%;
+    text-align: center;
+    line-height: 2;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  
+  .btn {
+    color: white !important;
+    background-color: #00425A !important;
+  }
+  
+  #heatmap.shiny-plot-output.shiny-bound-output {
+    height: auto !important;
+  }
+  
+'
 
 
 # Define UI for app  ----
@@ -15,12 +50,12 @@ ui <- navbarPage(
   title = "MetaboPlot",
   
   # App title ----
-  #tabPanel("About", 
-      #img(src='Logo.jpg', height="200px", width="100px"),
-      #h2("Welcome!"),
-      #p("I have made some tools for the ETU lab to process their metabolomics data. Hope they help :)")
-    #),
-    
+  tabPanel("About", class = "about",
+           img(src='Logo.jpg', height="200px", width="100px"),
+           h2("Welcome!"),
+           p("I have made some tools for the ETU lab to process their metabolomics data. Hope they help :)")
+  ),
+  
   # Sidebar layout with input and output definitions ----
   tabPanel("Analyze",
            
@@ -28,6 +63,8 @@ ui <- navbarPage(
              
              # Sidebar panel for inputs ----
              sidebarPanel(
+               
+               h4("Data Upload"),
                
                # Input: text ----
                textInput("plotTitles", "Type a title for your outputs:", value = "", width = NULL, placeholder = NULL),
@@ -45,8 +82,11 @@ ui <- navbarPage(
                actionButton("NMDS", "Generate NMDS"),
                
                h4("P-table & Heatmap"),
-               numericInput("featureNumber", "Select top n features for heatmap", 100),
+               numericInput("featureNumber", "Select top n features for heatmap:", 100),
                actionButton("heatmapButton", "Generate Heatmap"),
+               
+               h4("Limma"),
+               actionButton("limmaButton", "Run Limma"),
                
                
              ),
@@ -92,9 +132,47 @@ ui <- navbarPage(
                
                plotOutput("heatmap"),
                
+               
+               h3("Limma"),
+               tableOutput("toptable"),
+               downloadButton('downloadToptable',"Download Top Table"),
+               plotOutput("volcanoPlot"),
+               
              )
            )
   ), 
+  
+  tabPanel("IPS", 
+           
+           sidebarLayout(
+             
+             # Sidebar panel for inputs ----
+             sidebarPanel(
+               
+               h4("Data Upload"),
+               
+               # Input: text ----
+               #textInput("plotTitles", "Type a title for your outputs:", value = "", width = NULL, placeholder = NULL),
+               
+               # Input: Select a file ----
+               fileInput("file2", "Upload mummichog pathway enrichment:",
+                         multiple = TRUE,
+                         accept = c("text/csv",
+                                    "text/comma-separated-values,text/plain",
+                                    ".csv")),
+               
+             ),
+             
+             
+             mainPanel(
+               
+               tableOutput("IPS"),
+               downloadButton('downloadIPS',"Download IPS"),
+               
+             )
+           )
+           
+  )
   
 )
 

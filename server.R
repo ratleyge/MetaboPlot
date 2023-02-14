@@ -49,11 +49,23 @@ server <- function(input, output, session) {
     
   })
   
+  
+  # Need to fix this so that people can relevel after nmds is generated and outliers are removed
   observeEvent(input$relevel, {
     
-    groupIdentities <- req(myData$groupIdentities)
-    groupIdentities$Group <- relevel(groupIdentities$Group, levels(groupIdentities$Group)[2])
-    myData$groupIdentities <- groupIdentities
+    if (is.null(myData$groupIdentities_outliersRemoved)) {
+      
+      groupIdentities <- myData$groupIdentities
+      groupIdentities$Group <- relevel(groupIdentities$Group, levels(groupIdentities$Group)[2])
+      myData$groupIdentities <- groupIdentities
+      
+    } else {  
+      
+      groupIdentities <- myData$groupIdentities_outliersRemoved
+      groupIdentities$Group <- relevel(groupIdentities$Group, levels(groupIdentities$Group)[2])
+      myData$groupIdentities_outliersRemoved <- groupIdentities
+      
+    }
     
   })
   
@@ -140,7 +152,6 @@ server <- function(input, output, session) {
       }
       
       
-      
       removeModal()
       print(xx)
       
@@ -191,6 +202,7 @@ server <- function(input, output, session) {
       groupIdentities[which(groupIdentities$Group == levels(groupIdentities$Group)[2]),]$AutoGroup <- "groupTwo"
       transdf$Group <- groupIdentities$AutoGroup
       transdf$Group <- as.factor(transdf$Group)
+      transdf <<- transdf
       
       #Create a table of pvalues 
       ptable <- transdf %>% #select only a few columns to start with
@@ -205,24 +217,224 @@ server <- function(input, output, session) {
       ptable$groupOne <- NULL
       ptable$groupTwo <- NULL
       
+      ptable
+      
+      
+    })
+    
+    output$ptable <- renderTable({
+      
+      ptable <- req(ptable())
       ptable <- merge(key[,1:2], ptable, by.y = "m.z", by.x ="key")
       ptable <- ptable[order(ptable$pvalue),] #order by pvalue
       ptable$key <- NULL
       names(ptable) <- c("m.z", "pvalue")
       ptable <- ptable[!duplicated(ptable),]
       
+      head(ptable)
       
-    })
+      
+      })
     
-    output$ptable <- renderTable(head(req(ptable())))
+    
     output$downloadPtable <- downloadHandler(
       filename = function(){paste(input$plotTitles, "- ptable.csv")}, 
       content = function(fname){
-        write.csv(ptable(), fname, row.names = FALSE)
+        
+        ptable <- req(ptable())
+        ptable <- merge(key[,1:2], ptable, by.y = "m.z", by.x ="key")
+        ptable <- ptable[order(ptable$pvalue),] #order by pvalue
+        ptable$key <- NULL
+        names(ptable) <- c("m.z", "pvalue")
+        ptable <- ptable[!duplicated(ptable),]
+        write.csv(ptable, fname, row.names = FALSE)
+        
       }
     )
     
+    output$heatmap <- renderPlot({
+      
+      ptable <- req(ptable())
+      ptable <- ptable[order(ptable$pvalue),]
+      #ptable <- ptable[which(ptable$pvalue < 0.05), 1] %>% sapply(as.character)
+      ptable <- ptable[1:input$featureNumber, 1] %>% sapply(as.character)
+      
+      #create a df with the top 100 metabolites between mean Control and AD
+      heatmap_data <- transdf[,c(which(as.character(names(transdf)) %in% ptable == TRUE | as.character(names(transdf)) == "Group"))]
+      
+      rowAnnot <- data.frame(Group = heatmap_data$Group)
+      heatmap_data$Group <- NULL
+      rownames(rowAnnot) <- rownames(heatmap_data)
+      levels(rowAnnot$Group) <- levels(myData$groupIdentities$Group)
+      
+      Group <- c("#00425A", "#FC7300")
+      names(Group) <- c(levels(myData$groupIdentities$Group)[1], levels(myData$groupIdentities$Group)[2])
+      annotcolors <- list(Group = Group)
+      
+      heatmap_data[heatmap_data == 0] <-1
+      
+      #Log transform the data
+      heatmap_data <- heatmap_data %>% log2()
+      
+      #mean subtraction 
+      heatmap_data <- heatmap_data - rowMeans(heatmap_data)
+      
+      tomerge <- data.frame(key = names(heatmap_data))
+      tomerge <- merge(tomerge, key, by = "key")
+      names(heatmap_data) <- tomerge$m.z
+      
+
+      heatmap_data %>%
+        pheatmap(annotation_row = rowAnnot,
+                 annotation_colors = annotcolors,
+                 scale = "column",
+                 show_colnames = T,
+                 show_rownames = F,
+                 #cellheight = 20,
+                 #height = 10,
+                 #width = 10
+                 )
+      
+      
+    }, height = 400)
+    
   })
+  
+  observeEvent(input$limmaButton, {
+    
+    top.table <- reactive({
+      
+      req(transdf)
+      groupIdentities <- req(myData$groupIdentities)
+      
+      #Expression data
+      assayData <- as.matrix(t(transdf[, 1:(length(transdf)-1)]))
+      
+      #phenotype data
+      pData <- data.frame(Group = transdf$Group)
+      
+      
+      #all(rownames(pData)==colnames(assayData))
+      pData <- new("AnnotatedDataFrame", data=pData)
+      
+      sampleNames(pData) <- colnames(assayData)
+      
+      #Feature Data
+      FeatureData <- as.data.frame(names(transdf[, 1:(length(transdf)-1)]))
+      names(FeatureData) <- "key"
+      FeatureData <- new("AnnotatedDataFrame", data=FeatureData)
+      featureNames(FeatureData) <- rownames(assayData)
+      
+      
+      eSet <- ExpressionSet(assayData = assayData,
+                            phenoData = pData,
+                            featureData = FeatureData)
+      
+      
+      #Create a model matrix
+      design <- model.matrix(~Group, data=pData(eSet))
+      
+      #Sanity check
+      #colSums(design)
+      #table(transdf[,"Group"])
+      
+      # Fit the model
+      fit <- lmFit(eSet, design)
+      
+      # Calculate the t-stat 
+      fit <- eBayes(fit)
+      
+      # Summarize the results
+      #results <- decideTests(fit[,"GroupgroupTwo"])
+      
+      top.table <- topTable(fit, sort.by = "P", n = Inf)
+      top.table <- merge(key, top.table, by = "key")
+      top.table$key <- NULL
+      top.table <- top.table[order(top.table$P),]
+
+    })
+    
+    output$toptable <- renderTable({
+      
+      top.table <- req(top.table())
+      head(top.table)
+      
+    })
+    
+    
+    output$downloadToptable <- downloadHandler(
+      filename = function(){paste(input$plotTitles, "- top table.csv")}, 
+      content = function(fname){
+        
+        write.csv(top.table(), fname, row.names = FALSE)
+        
+      }
+    )
+    
+    output$volcanoPlot <- renderPlot({
+      
+      top.table <- req(top.table())
+      
+      top.table$difffex <- "NO"
+      top.table$difffex[top.table$logFC > 0.6 & top.table$adj.P.Val < 0.05] <- "UP"
+      # if log2Foldchange < -0.6 and pvalue < 0.05, set as "DOWN"
+      top.table$difffex[top.table$logFC < -0.6 & top.table$adj.P.Val < 0.05] <- "DOWN"
+      
+      top.table$label[top.table$difffex != "NO"] <- top.table$m.z[top.table$difffex != "NO"]
+      
+      ggplot(data=top.table, aes(x=logFC, y=-log10(adj.P.Val), color=difffex, label = label)) +
+        geom_point() +
+        geom_label_repel(max.overlaps=20) +
+        theme_bw() +
+        scale_color_manual(values=c("blue", "black", "red")) +
+        geom_vline(xintercept=c(-0.6, 0.6), col="red") +
+        geom_hline(yintercept=-log10(0.05), col="red") + 
+        labs(x= "Log2 of Fold Change", 
+             y= "Significance (-log10P)",
+             color = "Enrichment")
+      
+      
+    })
+    
+  })
+  
+  IPS <- reactive({
+    
+    req(input$file2)
+    
+    # Read metaboanalyst pathway hits output
+    IPS <- read.csv(input$file2$datapath)
+    IPS <- IPS[,1:6] # Keep only relevant columns
+    
+    # Calculate IPS value
+    IPS$Weighted_Metabolites <- ((IPS$Hits.sig + 1) ^ 2) + (IPS$Hits.total - IPS$Hits.sig)
+    IPS$Numerator <- IPS$Weighted_Metabolites / (IPS$Pathway.total * IPS$Expected)
+    IPS$Squared_P_Value <- IPS$FET ^ 2
+    IPS$IPS_Value <- IPS$Numerator / IPS$Squared_P_Value + 1
+    
+    
+    # Clean up (Keep only pathway name, IPS, and Map)
+    IPS <- IPS[,c(1,10)]
+    IPS$log2IPS <- log2(IPS$IPS_Value)
+    IPS <- IPS[order(IPS$IPS_Value), ]
+    names(IPS) <- c("Pathway", "IPS", "Log2(IPS)")
+    
+    IPS <- IPS
+    
+  })
+  
+  output$IPS <- renderTable(req(IPS()))
+  
+  output$downloadIPS <- downloadHandler(
+    filename = function(){paste("IPS table.csv")}, 
+    content = function(fname){
+      
+      write.csv(IPS(), fname, row.names = FALSE)
+      
+    }
+  )
+  
+  
 }
 
 
