@@ -1,10 +1,11 @@
 server <- function(input, output, session) {
   
   options(shiny.maxRequestSize=100*1024^2)
-  
   myData <- reactiveValues()
   
-  # Outputs 
+  
+  # Preview Data ----
+  
   output$viewInputTable <- renderTable({
     
     req(input$file1)
@@ -29,6 +30,7 @@ server <- function(input, output, session) {
     
   }) 
   
+  # Group identities ---
   
   output$Groups <- renderText({ 
     
@@ -50,6 +52,8 @@ server <- function(input, output, session) {
   })
   
   
+  # Relevel ----
+  
   # Need to fix this so that people can relevel after nmds is generated and outliers are removed
   observeEvent(input$relevel, {
     
@@ -69,6 +73,7 @@ server <- function(input, output, session) {
     
   })
   
+  # NMDS ----
   
   observeEvent(input$NMDS, {
     
@@ -116,7 +121,7 @@ server <- function(input, output, session) {
       }
       
       
-      # Create NMDS plot ###########################
+      # Create NMDS plot
       
       # Add group identities 
       data.scores$Group <- groupIdentities[, 1]
@@ -172,6 +177,8 @@ server <- function(input, output, session) {
   })
   
   
+  # P-table ----
+  
   ptable <- reactive({
     
     req(input$file1)
@@ -221,6 +228,10 @@ server <- function(input, output, session) {
     
   })
   
+  
+  
+  # Preview P-table
+  
   output$ptable <- renderTable({
     
     req(input$file1)
@@ -253,8 +264,10 @@ server <- function(input, output, session) {
   )
   
   
+  
   observeEvent(input$heatmapButton, {
     
+    # Print Heatmap ----
     
     output$heatmap <- renderPlot({
       
@@ -305,6 +318,8 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$limmaButton, {
+    
+    # Run Limma ----
     
     top.table <- reactive({
       
@@ -375,6 +390,8 @@ server <- function(input, output, session) {
       }
     )
     
+    # Generate Volcano ----
+    
     output$volcanoPlot <- renderPlot({
       
       top.table <- req(top.table())
@@ -403,7 +420,12 @@ server <- function(input, output, session) {
   })
   
   
+  
+  
   observeEvent(input$lassoButton, {
+    
+    # Run Lasso ----
+    
     coefs <- reactive({
       
       y = transdf$Group
@@ -483,6 +505,8 @@ server <- function(input, output, session) {
     
   })
 
+  
+  # IPS outputs -----------------------------
   
   IPS <- reactive({
     
