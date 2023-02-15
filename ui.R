@@ -1,41 +1,6 @@
-mystyle <- '
-  body {
-    padding-top: 70px !important;
-
-  }
-
-  .navbar {
-    font-size: 20px !important;
-  }
-
-  .navbar-brand {
-    font-size: 30px !important;
-  }
-
-  .navbar-default {
-    background-color: #00425A !important;
-  }
-
-  .about {
-    position: absolute;
-    top: 50%;
-    text-align: center;
-    line-height: 2;
-    left: 50%;
-    transform: translate(-50%, -50%);
-  }
-
-  .btn {
-    color: white !important;
-    background-color: #00425A !important;
-  }
-
-'
-
-
 # Define UI for app  ----
 ui <- navbarPage(
-  header = tags$head(tags$style(type = "text/css", mystyle)),
+  header = tags$head(tags$link(rel = "stylesheet", type = "text/css", href = "custom.css")),
   theme = shinytheme("yeti"),
   position = c("fixed-top"),
   title = "MetaboPlot",
@@ -86,6 +51,7 @@ ui <- navbarPage(
                ),
                checkboxInput("outlierRemove", "Remove outlier samples.", TRUE),
                uiOutput("Groups"),
+               selectInput(inputId = "relevelSelector", label = "Select Control", choices = NULL),
                actionButton("relevel", "Relevel groups"),
                p(" "),
                checkboxGroupInput(
@@ -129,7 +95,9 @@ ui <- navbarPage(
                  
                  tabPanel("NMDS",
                           h3("NMDS Plot"),
-                          plotOutput(outputId = "NMDS"),),
+                          #plotOutput(outputId = "NMDS"),
+                          generateNmdsUI("nmdsMod")
+                          ),
                  
                  tabPanel(
                    "Heatmap",

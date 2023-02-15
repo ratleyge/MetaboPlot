@@ -36,18 +36,12 @@ server <- function(input, output, session) {
     
     groupIdentities <- req(myData$groupIdentities)
     
-    if (length(levels(groupIdentities$Group)) > 2) {
+    updateSelectInput(session = session, inputId = "relevelSelector", choices = levels(groupIdentities$Group))
       
-      paste0("<p>The data you uploaded has more than two groups: ", 
-             paste(levels(groupIdentities$Group), collapse = ", "), 
-             ". Please choose a different dataset.</p>")
-      
-    } else {
-      
-      paste("<p><b>Control:</b>", levels(groupIdentities$Group)[1], "</p>", 
-            "<p><b>Experimental:</b>", levels(groupIdentities$Group)[2], "</p>")
-      
-    }
+    paste("<p><b>Control:</b>", levels(groupIdentities$Group)[1], "</p>", 
+          "<p><b>Experimental:</b>", 
+          paste(levels(groupIdentities$Group)[2:length(levels(groupIdentities$Group))], collapse = ", "), 
+          "</p>")
     
   })
   
@@ -57,9 +51,9 @@ server <- function(input, output, session) {
   # Need to fix this so that people can relevel after nmds is generated and outliers are removed
   observeEvent(input$relevel, {
     
-      
+      req(input$file1)
       groupIdentities <- myData$groupIdentities
-      groupIdentities$Group <- relevel(groupIdentities$Group, levels(groupIdentities$Group)[2])
+      groupIdentities$Group <- relevel(groupIdentities$Group, input$relevelSelector)
       myData$groupIdentities <- groupIdentities
       
     
@@ -67,6 +61,8 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$Submit, {
+    
+    showModal(modalDialog("Processing data...", footer=NULL))
     
     data.scores <- isolate({
       
@@ -116,55 +112,9 @@ server <- function(input, output, session) {
       
     })
     
-    
-    
-    output$NMDS <- renderPlot({
-      
-      if ("NMDS" %in% input$Plots) {
-        
-        data.scores <- req(data.scores)
-        
-        # Add group identities 
-        data.scores$Group <- groupIdentities[, 1]
-        head(data.scores)
-        
-        
-        # Now we can plot our NMDS in ggplot2
-        xx <- ggplot(data.scores, aes(x = NMDS1, y = NMDS2)) + 
-          geom_point(size = 3, aes( shape = Group, colour = Group)) + 
-          stat_ellipse(aes(x=NMDS1, y=NMDS2,color=Group),level = 0.95) +
-          theme(axis.text.y = element_text(colour = "black", size = 12, face = "bold"), 
-                axis.text.x = element_text(colour = "black", face = "bold", size = 12), 
-                legend.text = element_text(size = 12, face ="bold", colour ="black"), 
-                legend.position = "right", axis.title.y = element_text(face = "bold", size = 14), 
-                axis.title.x = element_text(face = "bold", size = 14, colour = "black"), 
-                legend.title = element_text(size = 14, colour = "black", face = "bold"), 
-                panel.background = element_blank(), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1.2),
-                plot.title = element_text(face = "bold", size = 20, colour = "black"),
-                legend.key=element_blank()) + 
-          labs(x = "NMDS1", colour = "Group", y = "NMDS2", shape = "Group", title = paste(input$plotTitles, "NMDS")) 
-        
-        
-        if (input$ANOSIM == TRUE) {
-          
-          ano <- anosim(transDf, groupIdentities[, 1], distance = "bray", permutations = 9999)
-          xx <- xx + labs(subtitle = paste("ANOSIM stat:", 
-                                           signif(ano$statistic, digits = 2),
-                                           "Significance:", 
-                                           signif(ano$signif, digits = 2)))
-          
-        }
-        
-        print(xx)
-        
-      } else {
-        
-        hideTab("plots", target = "NMDS")
-        
-      }
-      
-    })
-    
+    # input$ANOSIM is not passing correctly into the nmds module
+    anoVal <- isolate({ if (input$ANOSIM == TRUE) { anoVal <- TRUE } else { anoVal <- FALSE } })
+    generateNmdsServer("nmdsMod", data.scores, myData$groupIdentities, transDf, anoVal)
     
     output$outliers <- renderText(
       
@@ -203,8 +153,8 @@ server <- function(input, output, session) {
       # Create an alias for Groups so that we can call it in the p-table generation
       groupIdentities$AutoGroup <- 0
       groupIdentities$Group <- as.factor(groupIdentities$Group)
-      groupIdentities[which(groupIdentities$Group == levels(groupIdentities$Group)[1]),]$AutoGroup <- "groupOne"
-      groupIdentities[which(groupIdentities$Group == levels(groupIdentities$Group)[2]),]$AutoGroup <- "groupTwo"
+      groupIdentities[which(groupIdentities$Group == levels(groupIdentities$Group)[1]),]$AutoGroup <- "group1"
+      groupIdentities[which(groupIdentities$Group == levels(groupIdentities$Group)[2]),]$AutoGroup <- "group2"
       transdf$Group <- groupIdentities$AutoGroup
       transdf$Group <- as.factor(transdf$Group)
       transdf <<- transdf
@@ -216,11 +166,11 @@ server <- function(input, output, session) {
         dplyr::summarize(intensity = list(intensity)) %>% #put the intensities for all samples in a cohort for a particular metabolite in one column
         spread(Group, intensity) %>% #put data back into wide format
         group_by(m.z) %>% #t test will be applied for each of these metabolites
-        dplyr::mutate(pvalue = t.test(unlist(groupOne), unlist(groupTwo))$p.value)
+        dplyr::mutate(pvalue = t.test(unlist(group1), unlist(group2))$p.value)
       
       
-      ptable$groupOne <- NULL
-      ptable$groupTwo <- NULL
+      ptable$group1 <- NULL
+      ptable$group2 <- NULL
       
       ptable
       
@@ -312,7 +262,7 @@ server <- function(input, output, session) {
           )
       } else {
         
-        hideTab("plots", target = "heatmap")
+        hideTab("plots", target = "Heatmap")
         
       }
       
@@ -367,7 +317,7 @@ server <- function(input, output, session) {
         fit <- eBayes(fit)
         
         # Summarize the results
-        #results <- decideTests(fit[,"GroupgroupTwo"])
+        #results <- decideTests(fit[,"Groupgroup2"])
         
         top.table <- topTable(fit, sort.by = "P", n = Inf)
         top.table <- merge(key, top.table, by = "key")
@@ -530,6 +480,8 @@ server <- function(input, output, session) {
       }
       
     })
+    
+    removeModal()
     
   })
   
