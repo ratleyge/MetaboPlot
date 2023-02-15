@@ -3,13 +3,14 @@ generateNmdsUI <- function (id) {
   ns <- NS(id)
   
   tagList(
+    h3("NMDS Plot"),
     plotOutput(outputId = ns("NMDS")),
   )
   
 }
 
 
-generateNmdsServer <- function(id, data.scores, groupIdentities, transDf, anoVal) {
+generateNmdsServer <- function(id, data.scores, groupIdentities, transdf, anoVal, plotTitle) {
   
   moduleServer(id, function(input, output, session) {
     
@@ -33,16 +34,20 @@ generateNmdsServer <- function(id, data.scores, groupIdentities, transDf, anoVal
                 panel.background = element_blank(), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1.2),
                 plot.title = element_text(face = "bold", size = 20, colour = "black"),
                 legend.key=element_blank()) + 
-          labs(x = "NMDS1", colour = "Group", y = "NMDS2", shape = "Group", title = paste(input$plotTitles, "NMDS")) 
+          labs(x = "NMDS1", colour = "Group", y = "NMDS2", shape = "Group", title = paste(plotTitle, "NMDS")) 
         
         
         if (anoVal == TRUE) {
           
-          ano <- anosim(transDf, groupIdentities[, 1], distance = "bray", permutations = 9999)
+          showModal(modalDialog("Calculating ANOSIM...", footer=NULL))
+          
+          ano <- anosim(transdf, groupIdentities[, 1], distance = "bray", permutations = 9999)
           xx <- xx + labs(subtitle = paste("ANOSIM stat:", 
                                            signif(ano$statistic, digits = 2),
                                            "Significance:", 
                                            signif(ano$signif, digits = 2)))
+          
+          removeModal()
           
         }
         

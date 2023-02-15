@@ -68,7 +68,7 @@ ui <- navbarPage(
                h4("NMDS settings"),
                checkboxInput(
                  "ANOSIM",
-                 "Calculate ANOSIM statistic for NMDS. This can add up to 10 min to the run time.",
+                 "Calculate ANOSIM statistic for NMDS. This can add a few minutes to the run time.",
                  FALSE
                ),
                actionButton("Submit", "Submit Data"),
@@ -93,39 +93,10 @@ ui <- navbarPage(
                
                tabsetPanel(id ="plots",
                  
-                 tabPanel("NMDS",
-                          h3("NMDS Plot"),
-                          #plotOutput(outputId = "NMDS"),
-                          generateNmdsUI("nmdsMod")
-                          ),
-                 
-                 tabPanel(
-                   "Heatmap",
-                   h3("Heatmap"),
-                   numericInput("featureNumber", "Select top n features for heatmap:", 100),
-                   plotOutput("heatmap"),
-                   
-                 ),
-                 
-                 tabPanel(
-                   "Limma",
-                   h3("Limma & Volcano Plot"),
-                   tableOutput("toptable"),
-                   downloadButton('downloadToptable', "Download Top Table"),
-                   plotOutput("volcanoPlot"),
-                   
-                   
-                 ),
-                 
-                 tabPanel(
-                   "Lasso",
-                   h3("Lasso Feature Selection"),
-                   tableOutput("LassoTable"),
-                   downloadButton('downloadLasso', "Download Lasso Table"),
-                   plotOutput("LassoCoefficients"),
-                   
-                   
-                 ),
+                 tabPanel("NMDS", generateNmdsUI("nmdsMod")),
+                 tabPanel("Heatmap", generateHeatmapUI("heatmapMod")),
+                 tabPanel("Limma", generateLimmaUI("limmaMod")),
+                 tabPanel("Lasso", generateLassoUI("lassoMod")),
                ),
              )
            )),

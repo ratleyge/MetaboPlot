@@ -69,17 +69,17 @@ server <- function(input, output, session) {
       groupIdentities <- req(myData$groupIdentities)
       
       # Transpose Data and set column names as m/z
-      transDf <- as.data.frame(t(workingDf))
+      transdfscores <- as.data.frame(t(workingDf))
       
       # Turn all the intensities into numerics and format as numeric matrix
-      transDf <- sapply(transDf, as.numeric)
-      colnames(transDf) <- workingDf$m.z
-      transDf <- transDf[-1,]
-      rownames(transDf) <- rownames(groupIdentities)
+      transdfscores <- sapply(transdfscores, as.numeric)
+      colnames(transdfscores) <- workingDf$m.z
+      transdfscores <- transdfscores[-1,]
+      rownames(transdfscores) <- rownames(groupIdentities)
       
       # Run NMDS
       set.seed(123)
-      nmds <- metaMDS(transDf, distance = "bray")
+      nmds <- metaMDS(transdfscores, distance = "bray")
       
       # Extract NMDS scores (x and y coordinates)
       data.scores <- as.data.frame(scores(nmds)$sites)
@@ -101,7 +101,6 @@ server <- function(input, output, session) {
         data.scores <- data.scores[which(!(rownames(data.scores) %in% rownames(outliers))), ]
         groupIdentities <- data.frame(Group = groupIdentities[which(!(rownames(groupIdentities) %in% rownames(outliers))), ])
         rownames(groupIdentities) <- rownames(data.scores)
-        transDf <- transDf[which(!(rownames(transDf) %in% rownames(outliers))), ]
         workingDf <- workingDf[, which(!(colnames(workingDf) %in% rownames(outliers)))]
         
         myData$outliers <- rownames(outliers)
@@ -111,10 +110,6 @@ server <- function(input, output, session) {
       }
       
     })
-    
-    # input$ANOSIM is not passing correctly into the nmds module
-    anoVal <- isolate({ if (input$ANOSIM == TRUE) { anoVal <- TRUE } else { anoVal <- FALSE } })
-    generateNmdsServer("nmdsMod", data.scores, myData$groupIdentities, transDf, anoVal)
     
     output$outliers <- renderText(
       
@@ -128,15 +123,13 @@ server <- function(input, output, session) {
     )
     
     
-    
-    
     # P-table ----
     
     ptable <- reactive({
       
       req(input$file1)
       req(workingDf)
-        
+      
       groupIdentities <- myData$groupIdentities
       
       
@@ -178,7 +171,6 @@ server <- function(input, output, session) {
     })
     
     
-    
     # Preview P-table
     
     output$ptable <- renderTable({
@@ -213,273 +205,46 @@ server <- function(input, output, session) {
     )
     
     
+    # Print NMDS ----
+    
+    if ("NMDS" %in% input$Plots) {
+    
+      # input$ANOSIM is not passing correctly into the nmds module
+      anoVal <- isolate({ if (input$ANOSIM == TRUE) { anoVal <- TRUE } else { anoVal <- FALSE } })
+      generateNmdsServer("nmdsMod", data.scores, myData$groupIdentities, transdf, anoVal, input$plotTitles)
+    
+    } else { hideTab("plots", target = "NMDS") }
+    
+    
     
     # Print Heatmap ----
     
-    output$heatmap <- renderPlot({
+    if ("heatmap" %in% input$Plots) {
       
-      if ("heatmap" %in% input$Plots) {
-        
-        ptable <- req(ptable())
-        ptable <- ptable[order(ptable$pvalue),]
-        #ptable <- ptable[which(ptable$pvalue < 0.05), 1] %>% sapply(as.character)
-        ptable <- ptable[1:input$featureNumber, 1] %>% sapply(as.character)
-        
-        #create a df with the top 100 metabolites between mean Control and AD
-        heatmap_data <- transdf[,c(which(as.character(names(transdf)) %in% ptable == TRUE | as.character(names(transdf)) == "Group"))]
-        
-        rowAnnot <- data.frame(Group = heatmap_data$Group)
-        heatmap_data$Group <- NULL
-        rownames(rowAnnot) <- rownames(heatmap_data)
-        levels(rowAnnot$Group) <- levels(myData$groupIdentities$Group)
-        
-        Group <- c("#00425A", "#FC7300")
-        names(Group) <- c(levels(myData$groupIdentities$Group)[1], levels(myData$groupIdentities$Group)[2])
-        annotcolors <- list(Group = Group)
-        
-        heatmap_data[heatmap_data == 0] <-1
-        
-        #Log transform the data
-        heatmap_data <- heatmap_data %>% log2()
-        
-        #mean subtraction 
-        heatmap_data <- heatmap_data - rowMeans(heatmap_data)
-        
-        tomerge <- data.frame(key = names(heatmap_data))
-        tomerge <- merge(tomerge, key, by = "key")
-        names(heatmap_data) <- tomerge$m.z
-        
-        
-        heatmap_data %>%
-          pheatmap(annotation_row = rowAnnot,
-                   annotation_colors = annotcolors,
-                   scale = "column",
-                   show_colnames = T,
-                   show_rownames = F,
-                   #cellheight = 20,
-                   #height = 10,
-                   #width = 10
-          )
-      } else {
-        
-        hideTab("plots", target = "Heatmap")
-        
-      }
+      generateHeatmapServer("heatmapMod", myData$groupIdentities, transdf, ptable())
       
-      
-    })
+    } else { hideTab("plots", target = "Heatmap") }
+    
     
     
     # Run Limma ----
     
-    top.table <- isolate({
+    if ("limma" %in% input$Plots) {
       
-      if ("limma" %in% input$Plots) {
-        
-        req(transdf)
-        groupIdentities <- req(myData$groupIdentities)
-        
-        #Expression data
-        assayData <- as.matrix(t(transdf[, 1:(length(transdf)-1)]))
-        
-        #phenotype data
-        pData <- data.frame(Group = transdf$Group)
-        
-        
-        #all(rownames(pData)==colnames(assayData))
-        pData <- new("AnnotatedDataFrame", data=pData)
-        
-        sampleNames(pData) <- colnames(assayData)
-        
-        #Feature Data
-        FeatureData <- as.data.frame(names(transdf[, 1:(length(transdf)-1)]))
-        names(FeatureData) <- "key"
-        FeatureData <- new("AnnotatedDataFrame", data=FeatureData)
-        featureNames(FeatureData) <- rownames(assayData)
-        
-        
-        eSet <- ExpressionSet(assayData = assayData,
-                              phenoData = pData,
-                              featureData = FeatureData)
-        
-        
-        #Create a model matrix
-        design <- model.matrix(~Group, data=pData(eSet))
-        
-        #Sanity check
-        #colSums(design)
-        #table(transdf[,"Group"])
-        
-        # Fit the model
-        fit <- lmFit(eSet, design)
-        
-        # Calculate the t-stat 
-        fit <- eBayes(fit)
-        
-        # Summarize the results
-        #results <- decideTests(fit[,"Groupgroup2"])
-        
-        top.table <- topTable(fit, sort.by = "P", n = Inf)
-        top.table <- merge(key, top.table, by = "key")
-        top.table$key <- NULL
-        top.table <- top.table[order(top.table$P),]
-      } else {
-        
-        hideTab("plots", target = "Limma")
-        
-      }
-    })
-    
-    output$toptable <- renderTable({
-      if ("limma" %in% input$Plots) {
-        
-        req(top.table)
-        head(top.table)
-        
-      }
+      generateLimmaServer("limmaMod", transdf, input$plotTitles)
       
-    })
-    
-    
-    output$downloadToptable <- downloadHandler(
-      filename = function(){paste(input$plotTitles, "- top table.csv")}, 
-      content = function(fname){
-        
-        write.csv(top.table, fname, row.names = FALSE)
-        
-      }
-    )
-    
-    # Generate Volcano ----
-    
-    output$volcanoPlot <- renderPlot({
-      
-      if ("limma" %in% input$Plots) {
-        
-        req(top.table)
-        
-        top.table$difffex <- "NO"
-        top.table$difffex[top.table$logFC > 0.6 & top.table$adj.P.Val < 0.05] <- "UP"
-        # if log2Foldchange < -0.6 and pvalue < 0.05, set as "DOWN"
-        top.table$difffex[top.table$logFC < -0.6 & top.table$adj.P.Val < 0.05] <- "DOWN"
-        
-        top.table$label[top.table$difffex != "NO"] <- top.table$m.z[top.table$difffex != "NO"]
-        
-        ggplot(data=top.table, aes(x=logFC, y=-log10(adj.P.Val), color=difffex, label = label)) +
-          geom_point() +
-          geom_label_repel(max.overlaps=20) +
-          theme_bw() +
-          scale_color_manual(values=c("blue", "black", "red")) +
-          geom_vline(xintercept=c(-0.6, 0.6), col="red") +
-          geom_hline(yintercept=-log10(0.05), col="red") + 
-          labs(x= "Log2 of Fold Change", 
-               y= "Significance (-log10P)",
-               color = "Enrichment")
-        
-      }
-    })
-    
-    
+    } else { hideTab("plots", target = "Limma") }
     
     
     
     # Run Lasso ----
     
-    coefs <- isolate({
+    if ("lasso" %in% input$Plots) {
       
-      if ("lasso" %in% input$Plots) {
-        
-        y = transdf$Group
-        x = as.matrix(transdf[, 1:(length(transdf)-1)])
-        
-        cv_model <- cv.glmnet(scale(x), 
-                              y, 
-                              alpha = 1, 
-                              standardize = TRUE,
-                              nfolds = 10,
-                              family = "binomial")
-        
-        #find optimal lambda value that minimizes test MSE
-        best_lambda <- cv_model$lambda.min
-        
-        #produce plot of test MSE by lambda value
-        #plot(cv_model)
-        #plot(cv_model$glmnet.fit, col=blues9, xvar="lambda", label=F)
-        #abline(v=log(best_lambda), col="red")
-        #abline(v=log(cv_model$lambda.1se), col="red")
-        
-        best_model <- glmnet(scale(x), 
-                             y, 
-                             alpha = 1, 
-                             standardize = TRUE,
-                             lambda = best_lambda, 
-                             family = "binomial")
-        
-        
-        coef <- coef(best_model, s = best_model$lambda.min)
-        coefs <- data.frame("key" = coef@Dimnames[[1]][2:length(coef)], "Beta" = coef[2:length(coef)])
-        coefs <- merge(key, coefs, by = "key")
-        coefs$key <- NULL
-        coefs <- coefs[order(-coefs$Beta),]
-        
-      }
+      generateLassoServer("lassoMod", transdf, input$plotTitles)
       
-      else {
-        
-        hideTab("plots", target = "Lasso")
-        
-      }
-      
-    })
+    } else { hideTab("plots", target = "Lasso") }
     
-    output$LassoTable <- renderTable({
-      
-      if ("lasso" %in% input$Plots) {
-        
-        req(coefs)
-        head(coefs)
-        
-      }
-      
-    }, digits = -1)
-    
-    output$downloadLasso <- downloadHandler(
-      filename = function(){paste(input$plotTitles, "- Lasso Coefficients.csv")}, 
-      content = function(fname){
-        req(coefs)
-        write.csv(coefs, fname, row.names = FALSE)
-        
-      }
-    )
-    
-    output$LassoCoefficients <- renderPlot({
-      
-      
-      if ("lasso" %in% input$Plots) {
-        
-        req(coefs)
-        
-        coefs <- coefs[abs(coefs$Beta) > 0, ]
-        coefs <- coefs[order(-abs(coefs$Beta)), ]
-        
-        g <- (ggplot(coefs, aes(x = reorder(m.z, Beta), y = Beta)) +
-                geom_bar(stat = "identity", 
-                         position = position_stack(),
-                         color = "white", 
-                         fill = "lightblue") +
-                ggtitle(input$plotTitles) +
-                coord_flip() +
-                ylab("Beta Coefficients") +
-                xlab("Input Variables") +
-                theme(plot.margin = unit(c(0.5,1.5,0.5,0.5), "cm")) +
-                theme(text = element_text(size = 15))) +
-          geom_hline(yintercept = 0)
-        
-        g
-        
-      }
-      
-    })
     
     removeModal()
     
