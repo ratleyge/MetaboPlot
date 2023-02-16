@@ -108,9 +108,7 @@ ui <- navbarPage(
              sidebarPanel(
                h4("Data Upload"),
                
-               # Input: text ----
-               #textInput("plotTitles", "Type a title for your outputs:", value = "", width = NULL, placeholder = NULL),
-               
+            
                # Input: Select a file ----
                fileInput(
                  "files2",
@@ -121,33 +119,17 @@ ui <- navbarPage(
                             ".csv")
                ),
                
+               selectInput(inputId = "orderBySelector", label = "Column to order by", choices = NULL),
+               checkboxInput("naToZero", "Treat missing values as zeros", TRUE),
+               
              ),
              
              
              mainPanel(
                h3("The Index of Pathway Significance"),
-               p(
-                 paste(
-                   "The Index of Pathway Significance (IPS) is an in-house formula
-                       derived from five metrics provided by Metaboanalyst:
-                       total number of metabolites in a metabolic pathway, the total number
-                       of metabolite hits picked up from a sample, the number of significant
-                       metabolite hits in a pathway, the expected number of total metabolite
-                       hits in a sample, and FET, the p-value associated with a sample.
-                       When considered together, they produce a single, easily comparable value
-                       that is associated with differences between two treatments with respect to
-                       a certain metabolic pathway. A higher IPS value indicates a greater difference
-                       and can be used to rank either the metabolic pathways that are shared between two
-                       treatments, or the treatments that all exhibit that particular pathway. Assigning
-                       a single value to each pathway also allows many comparisons to be condensed and
-                       visualized in figures such as heat maps and metabolic pathway maps."
-                 )
-               ),
-               
                h4("IPS Table Preview"),
                tableOutput("IPS"),
                downloadButton('downloadIPS', "Download IPS Table"),
-               
                plotOutput("IPSHeatmap"),
                
              )

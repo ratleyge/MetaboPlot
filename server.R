@@ -275,18 +275,23 @@ server <- function(input, output, session) {
       IPSworking <- IPSworking[,c(1,10)]
       IPSworking$log2 <- log2(IPSworking$IPS_Value)
       names(IPSworking) <- c("Pathway", "IPS", "Log2(IPS)")
-      IPSworking$ID <- input$files2[i,]$name
+      IPSworking$ID <- gsub(".csv", "", input$files2[i,]$name)
+      IPSworking <- IPSworking[order(-IPSworking$IPS),]
+      IPSworking <- IPSworking[1:10, ]
       
       IPS <- rbind(IPS, IPSworking)
       
     }
     
+    IPS$ID <- as.factor(IPS$ID)
+    updateSelectInput(session = session, inputId = "orderBySelector", choices = levels(IPS$ID))
     
     IPS <- IPS
     
     
   })
   
+
   output$IPS <- renderTable({
     req(IPS())
     head(IPS())
@@ -305,8 +310,8 @@ server <- function(input, output, session) {
   
   output$IPSHeatmap <- renderPlot({
     
-    req(IPS())
-    IPS <- IPS()
+    
+    IPS <- req(IPS())
     
     IPS$IPS <- NULL
     
@@ -319,17 +324,32 @@ server <- function(input, output, session) {
     rownames(IPS) <- IPS$Pathway
     IPS$Pathway <- NULL
     
+    if (input$naToZero == TRUE) {
+      
+      IPS[is.na(IPS)] = 0
+      
+    }
     
-    pheatmap(IPS,
-             cluster_rows = F,
-             cluster_cols = F,
-             angle_col = 45,
-             fontsize_col = 8,
-             scale = "column",
-    )
+    if (input$orderBySelector != "") {
+      
+      col <- input$orderBySelector
+      
+      IPS <- IPS[order(-IPS[,col]),]
+      
+      IPS <- IPS %>%
+        dplyr::select(all_of(col), everything())
+      
+      pheatmap(IPS,
+               cluster_rows = F,
+               cluster_cols = F,
+               angle_col = 45,
+               fontsize = 12,
+               scale = "column",
+      )
+      
+    }
     
-    
-  }, height = 800)
+  })
   
   
   
