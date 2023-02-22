@@ -4,8 +4,22 @@ generateHeatmapUI <- function (id) {
   
   tagList(
     h3("Heatmap"),
-    numericInput(ns("featureNumber"), "Select top n features for heatmap:", 50),
     plotOutput(outputId = ns("heatmap")),
+    fluidRow(    
+      column(3,
+             numericInput(ns("featureNumber"), "Select top n features for heatmap:", 50),
+             ),
+      
+      column(4, offset = 1,
+             checkboxInput(ns("clustCol"), "Cluster Columns", TRUE),
+             checkboxInput(ns("clustRow"), "Cluster Rows", TRUE),
+      ),
+      column(4,
+             checkboxInput(ns("namesCol"), "Show Column Names", TRUE),
+             checkboxInput(ns("namesRow"), "Show Row Names", TRUE),
+      ),
+
+    )
   )
   
 }
@@ -50,14 +64,12 @@ generateHeatmapServer <- function(id, groupIdentities, transdf, ptable) {
           pheatmap(annotation_row = rowAnnot,
                    annotation_colors = annotcolors,
                    scale = "column",
-                   show_colnames = T,
-                   show_rownames = F,
-                   #cellheight = 20,
-                   #height = 10,
-                   #width = 10
+                   show_colnames = input$namesCol,
+                   show_rownames = input$namesRow,
+                   cluster_rows = input$clustRow,
+                   cluster_cols = input$clustCol,
           )
-      
-      
+
     })
     
   })

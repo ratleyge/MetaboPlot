@@ -331,17 +331,16 @@ server <- function(input, output, session) {
     }
     
     if (input$orderBySelector != "") {
-      
+        
       col <- input$orderBySelector
-      
       IPS <- IPS[order(-IPS[,col]),]
-      
       IPS <- IPS %>%
         dplyr::select(all_of(col), everything())
       
+      
       pheatmap(IPS,
-               cluster_rows = F,
-               cluster_cols = F,
+               cluster_rows = input$IPSclustRow,
+               cluster_cols = input$IPSclustCol,
                angle_col = 45,
                fontsize = 12,
                scale = "column",

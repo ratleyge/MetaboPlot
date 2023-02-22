@@ -29,3 +29,9 @@
     color: white !important;
     background-color: #00425A !important;
   }
+  
+  
+  div#relevelRow {
+    display: flex !important;
+    align-items: center !important;
+  }

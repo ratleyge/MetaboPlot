@@ -49,11 +49,25 @@ ui <- navbarPage(
                             "text/comma-separated-values,text/plain",
                             ".csv")
                ),
+               
                checkboxInput("outlierRemove", "Remove outlier samples.", TRUE),
                uiOutput("Groups"),
-               selectInput(inputId = "relevelSelector", label = "Select Control", choices = NULL),
-               actionButton("relevel", "Relevel groups"),
-               p(" "),
+               
+               fluidRow(id = "relevelRow",
+                 
+                 column(6, 
+                        selectInput(
+                          inputId = "relevelSelector", 
+                          label = "Select Control", 
+                          choices = NULL
+                          ),
+                        ),
+                 
+                 column(6, actionButton("relevel", "Relevel groups")),
+                 
+               ),
+               
+               
                checkboxGroupInput(
                  "Plots",
                  "Analyses to include",
@@ -65,12 +79,16 @@ ui <- navbarPage(
                  ),
                ),
                
-               h4("NMDS settings"),
-               checkboxInput(
-                 "ANOSIM",
-                 "Calculate ANOSIM statistic for NMDS. This can add a few minutes to the run time.",
-                 FALSE
+               conditionalPanel(
+                 "$.inArray('NMDS', input.Plots) > -1",
+                 h4("NMDS settings"),
+                 checkboxInput(
+                   "ANOSIM",
+                   "Calculate ANOSIM statistic for NMDS. This can add a few minutes to the run time.",
+                   FALSE
+                 ),
                ),
+               
                actionButton("Submit", "Submit Data"),
                
              ),
@@ -92,11 +110,11 @@ ui <- navbarPage(
                
                
                tabsetPanel(id ="plots",
-                 
-                 tabPanel("NMDS", generateNmdsUI("nmdsMod")),
-                 tabPanel("Heatmap", generateHeatmapUI("heatmapMod")),
-                 tabPanel("Limma", generateLimmaUI("limmaMod")),
-                 tabPanel("Lasso", generateLassoUI("lassoMod")),
+                           
+                           tabPanel("NMDS", generateNmdsUI("nmdsMod")),
+                           tabPanel("Heatmap", generateHeatmapUI("heatmapMod")),
+                           tabPanel("Limma", generateLimmaUI("limmaMod")),
+                           tabPanel("Lasso", generateLassoUI("lassoMod")),
                ),
              )
            )),
@@ -108,7 +126,7 @@ ui <- navbarPage(
              sidebarPanel(
                h4("Data Upload"),
                
-            
+               
                # Input: Select a file ----
                fileInput(
                  "files2",
@@ -119,8 +137,13 @@ ui <- navbarPage(
                             ".csv")
                ),
                
+   
+               checkboxInput("IPSclustCol", "Cluster columns", FALSE),
+               checkboxInput("IPSclustRow", "Cluster rows", FALSE),
                selectInput(inputId = "orderBySelector", label = "Column to order by", choices = NULL),
+               
                checkboxInput("naToZero", "Treat missing values as zeros", TRUE),
+               
                
              ),
              
