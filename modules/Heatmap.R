@@ -4,7 +4,6 @@ generateHeatmapUI <- function (id) {
   
   tagList(
     h3("Heatmap"),
-    plotOutput(outputId = ns("heatmap")),
     fluidRow(    
       column(3,
              numericInput(ns("featureNumber"), "Select top n features for heatmap:", 50),
@@ -19,7 +18,8 @@ generateHeatmapUI <- function (id) {
              checkboxInput(ns("namesRow"), "Show Row Names", TRUE),
       ),
 
-    )
+    ),
+    plotOutput(outputId = ns("heatmap")),
   )
   
 }
@@ -28,6 +28,8 @@ generateHeatmapUI <- function (id) {
 generateHeatmapServer <- function(id, groupIdentities, transdf, ptable) {
   
   moduleServer(id, function(input, output, session) {
+    
+    plotHeight <- min(1200, 5 * max(nchar(workingDf)) + 0.5 * length(rownames(workingDf)))
     
     output$heatmap <- renderPlot({
         
@@ -70,7 +72,7 @@ generateHeatmapServer <- function(id, groupIdentities, transdf, ptable) {
                    cluster_cols = input$clustCol,
           )
 
-    })
+    }, height = plotHeight)
     
   })
   

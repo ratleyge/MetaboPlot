@@ -50,6 +50,17 @@ ui <- navbarPage(
                             ".csv")
                ),
                
+               radioButtons(
+                 "metAnnotations",
+                 label = "Include annotations:",
+                 choices = c(
+                   "m/z only" = "mzOnly",
+                   "Annotations only" = "annotOnly",
+                   "Both" = "mzAnnot"
+                 ),
+                 selected = "mzOnly"
+                 ),
+               
                checkboxInput("outlierRemove", "Remove outlier samples.", TRUE),
                uiOutput("Groups"),
                

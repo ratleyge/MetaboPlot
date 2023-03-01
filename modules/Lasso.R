@@ -18,7 +18,6 @@ generateLassoServer <- function(id, transdf, plotTitle) {
     
     
     coefs <- isolate({
-        
         y = transdf$Group
         x = as.matrix(transdf[, 1:(length(transdf)-1)])
         
@@ -95,7 +94,7 @@ generateLassoServer <- function(id, transdf, plotTitle) {
         
         g
       
-    })
+    }, height = length(coefs[abs(coefs$Beta) > 0, ]$Beta) * 20)
     
   })
   

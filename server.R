@@ -11,6 +11,13 @@ server <- function(input, output, session) {
     req(input$file1)
     workingDf <- read.csv(input$file1$datapath)
     
+    if (input$metAnnotations == "annotOnly") {
+      
+      workingDf <- workingDf[c(1 , which(workingDf$Name != "")),]
+      workingDf$m.z <- workingDf$Name
+      
+    } 
+    
     workingDf$Bucket.label <- NULL
     workingDf$RT <- NULL
     workingDf$Name <- NULL
@@ -61,7 +68,6 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$Submit, {
-    
     showModal(modalDialog("Processing data...", footer=NULL))
     
     data.scores <- isolate({
@@ -72,9 +78,9 @@ server <- function(input, output, session) {
       transdfscores <- as.data.frame(t(workingDf))
       
       # Turn all the intensities into numerics and format as numeric matrix
+      transdfscores <- transdfscores[-1,]
       transdfscores <- sapply(transdfscores, as.numeric)
       colnames(transdfscores) <- workingDf$m.z
-      transdfscores <- transdfscores[-1,]
       rownames(transdfscores) <- rownames(groupIdentities)
       
       # Run NMDS
@@ -123,16 +129,13 @@ server <- function(input, output, session) {
     )
     
     
-    # P-table ----
-    
-    ptable <- reactive({
+    transdf <- isolate({
+      
       
       req(input$file1)
       req(workingDf)
       
       groupIdentities <- myData$groupIdentities
-      
-      
       workingDf <- cbind(key = c(paste0("met",seq(1:(length(rownames(workingDf)))))), workingDf)
       key <<- workingDf[, 1:2]
       workingDf$m.z <- NULL
@@ -151,6 +154,12 @@ server <- function(input, output, session) {
       transdf$Group <- groupIdentities$AutoGroup
       transdf$Group <- as.factor(transdf$Group)
       transdf <<- transdf
+      
+    })
+    
+    # P-table ----
+    
+    ptable <- reactive({
       
       #Create a table of pvalues 
       ptable <- transdf %>% #select only a few columns to start with
@@ -208,7 +217,8 @@ server <- function(input, output, session) {
     # Print NMDS ----
     
     if ("NMDS" %in% input$Plots) {
-    
+      
+      req(transdf)
       # input$ANOSIM is not passing correctly into the nmds module
       anoVal <- isolate({ if (input$ANOSIM == TRUE) { anoVal <- TRUE } else { anoVal <- FALSE } })
       generateNmdsServer("nmdsMod", data.scores, myData$groupIdentities, transdf, anoVal, input$plotTitles)
@@ -221,6 +231,7 @@ server <- function(input, output, session) {
     
     if ("heatmap" %in% input$Plots) {
       
+      req(transdf)
       generateHeatmapServer("heatmapMod", myData$groupIdentities, transdf, ptable())
       
     } else { hideTab("plots", target = "Heatmap") }
@@ -231,6 +242,7 @@ server <- function(input, output, session) {
     
     if ("limma" %in% input$Plots) {
       
+      req(transdf)
       generateLimmaServer("limmaMod", transdf, input$plotTitles)
       
     } else { hideTab("plots", target = "Limma") }
@@ -241,6 +253,7 @@ server <- function(input, output, session) {
     
     if ("lasso" %in% input$Plots) {
       
+      req(transdf)
       generateLassoServer("lassoMod", transdf, input$plotTitles)
       
     } else { hideTab("plots", target = "Lasso") }
