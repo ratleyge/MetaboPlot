@@ -6,8 +6,15 @@ generateHeatmapUI <- function (id) {
     h3("Heatmap"),
     fluidRow(    
       column(3,
+             checkboxInput(ns("showSig"), "Show all significant features."),
              numericInput(ns("featureNumber"), "Select top n features for heatmap:", 50),
-             ),
+             selectInput(
+               ns("heatScale"), 
+               "Scale data by:", 
+               choices = c("row", "column", "none"),
+               selected = "none"
+               ),
+             ), 
       
       column(4, offset = 1,
              checkboxInput(ns("clustCol"), "Cluster Columns", TRUE),
@@ -29,13 +36,23 @@ generateHeatmapServer <- function(id, groupIdentities, transdf, ptable) {
   
   moduleServer(id, function(input, output, session) {
     
-    plotHeight <- min(1200, 5 * max(nchar(workingDf)) + 0.5 * length(rownames(workingDf)))
+    plotHeight <- min(1000, 0.1 * length(rownames(workingDf)))
+    ptable <- as.data.frame(ptable)
     
     output$heatmap <- renderPlot({
         
-        ptable <- ptable[order(ptable$pvalue),]
-        #ptable <- ptable[which(ptable$pvalue < 0.05), 1] %>% sapply(as.character)
-        ptable <- ptable[1:input$featureNumber, 1] %>% sapply(as.character)
+        ptable <- ptable[order(ptable[, 2]),]
+        
+        if (input$showSig == FALSE) {
+          
+          ptable <- ptable[1:input$featureNumber, 1] %>% sapply(as.character)
+          
+        } else {
+          
+          ptable <- ptable[which(ptable[, 2] < 0.05), 1] %>% sapply(as.character)
+          
+        }
+        
         
         #create a df with the top 100 metabolites between mean Control and AD
         heatmap_data <- transdf[,c(which(as.character(names(transdf)) %in% ptable == TRUE | as.character(names(transdf)) == "Group"))]
@@ -44,10 +61,6 @@ generateHeatmapServer <- function(id, groupIdentities, transdf, ptable) {
         heatmap_data$Group <- NULL
         rownames(rowAnnot) <- rownames(heatmap_data)
         levels(rowAnnot$Group) <- levels(groupIdentities$Group)
-        
-        Group <- c("#00425A", "#FC7300")
-        names(Group) <- c(levels(groupIdentities$Group)[1], levels(groupIdentities$Group)[2])
-        annotcolors <- list(Group = Group)
         
         heatmap_data[heatmap_data == 0] <-1
         
@@ -64,8 +77,8 @@ generateHeatmapServer <- function(id, groupIdentities, transdf, ptable) {
         
         heatmap_data %>%
           pheatmap(annotation_row = rowAnnot,
-                   annotation_colors = annotcolors,
-                   scale = "column",
+                   #annotation_colors = annotcolors,
+                   scale = input$heatScale,
                    show_colnames = input$namesCol,
                    show_rownames = input$namesRow,
                    cluster_rows = input$clustRow,

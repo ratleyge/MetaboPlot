@@ -61,9 +61,10 @@ ui <- navbarPage(
                  selected = "mzOnly"
                  ),
                
-               checkboxInput("outlierRemove", "Remove outlier samples.", TRUE),
-               uiOutput("Groups"),
                
+               h4("Groups"),
+               uiOutput("Groups"),
+
                fluidRow(id = "relevelRow",
                  
                  column(6, 
@@ -78,6 +79,7 @@ ui <- navbarPage(
                  
                ),
                
+               h4("Analysis"),
                
                checkboxGroupInput(
                  "Plots",
@@ -87,7 +89,7 @@ ui <- navbarPage(
                    "Heatmap" = "heatmap",
                    "Limma & Volcano Plot" = "limma",
                    "Lasso feature selection" = "lasso"
-                 ),
+                 ), 
                ),
                
                conditionalPanel(
@@ -99,6 +101,8 @@ ui <- navbarPage(
                    FALSE
                  ),
                ),
+               
+               checkboxInput("outlierRemove", "Remove outlier samples.", TRUE),
                
                actionButton("Submit", "Submit Data"),
                
@@ -116,7 +120,7 @@ ui <- navbarPage(
                
                h3("P-table"),
                tableOutput("ptable"),
-               downloadButton('downloadPtable', "Download P-table"),
+               downloadButton('downloadPtable', "Download P-tables"),
                h2(" "),
                
                

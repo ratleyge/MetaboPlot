@@ -1,5 +1,5 @@
 generateNmdsUI <- function (id) {
-  
+
   ns <- NS(id)
   
   tagList(
@@ -39,15 +39,11 @@ generateNmdsServer <- function(id, data.scores, groupIdentities, transdf, anoVal
         
         if (anoVal == TRUE) {
           
-          showModal(modalDialog("Calculating ANOSIM...", footer=NULL))
-          
           ano <- anosim(transdf, groupIdentities[, 1], distance = "bray", permutations = 9999)
           xx <- xx + labs(subtitle = paste("ANOSIM stat:", 
                                            signif(ano$statistic, digits = 2),
                                            "Significance:", 
                                            signif(ano$signif, digits = 2)))
-          
-          removeModal()
           
         }
         

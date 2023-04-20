@@ -3,7 +3,6 @@ server <- function(input, output, session) {
   options(shiny.maxRequestSize=100*1024^2)
   myData <- reactiveValues()
   
-  
   # Preview Data ----
   
   output$viewInputTable <- renderTable({
@@ -18,7 +17,12 @@ server <- function(input, output, session) {
       
     } 
     
+
+    workingDf$m.z <- gsub(" Da", "", workingDf$Bucket.label)
+    workingDf$m.z <- as.numeric(workingDf$m.z)
     workingDf$Bucket.label <- NULL
+    
+    
     workingDf$RT <- NULL
     workingDf$Name <- NULL
     workingDf$Formula <- NULL
@@ -54,7 +58,6 @@ server <- function(input, output, session) {
   
   
   # Relevel ----
-  
   # Need to fix this so that people can relevel after nmds is generated and outliers are removed
   observeEvent(input$relevel, {
     
@@ -96,7 +99,7 @@ server <- function(input, output, session) {
       
       data.scores <- req(data.scores)
       
-      if(input$outlierRemove == TRUE){
+      if (input$outlierRemove == TRUE) {
         
         # Identify outlier samples based on nmds values and safe a copy of them in directory
         outliers <- rbind(data.scores[which((data.scores$NMDS1 %in% boxplot.stats(data.scores$NMDS1)$out)), ],
@@ -149,8 +152,13 @@ server <- function(input, output, session) {
       # Create an alias for Groups so that we can call it in the p-table generation
       groupIdentities$AutoGroup <- 0
       groupIdentities$Group <- as.factor(groupIdentities$Group)
-      groupIdentities[which(groupIdentities$Group == levels(groupIdentities$Group)[1]),]$AutoGroup <- "group1"
-      groupIdentities[which(groupIdentities$Group == levels(groupIdentities$Group)[2]),]$AutoGroup <- "group2"
+      
+      for (i in seq(1:length(levels(groupIdentities$Group)))) {
+        
+        groupIdentities[which(groupIdentities$Group == levels(groupIdentities$Group)[i]), ]$AutoGroup <- paste0("group", i)
+        
+      }
+      
       transdf$Group <- groupIdentities$AutoGroup
       transdf$Group <- as.factor(transdf$Group)
       transdf <<- transdf
@@ -159,6 +167,8 @@ server <- function(input, output, session) {
     
     # P-table ----
     
+    
+    
     ptable <- reactive({
       
       #Create a table of pvalues 
@@ -166,13 +176,28 @@ server <- function(input, output, session) {
         gather(key = m.z, value = intensity, -Group) %>% #melt the data into a long format
         group_by(Group, m.z) %>% #group intensities by metabolite and cohort
         dplyr::summarize(intensity = list(intensity)) %>% #put the intensities for all samples in a cohort for a particular metabolite in one column
-        spread(Group, intensity) %>% #put data back into wide format
-        group_by(m.z) %>% #t test will be applied for each of these metabolites
-        dplyr::mutate(pvalue = t.test(unlist(group1), unlist(group2))$p.value)
+        spread(Group, intensity)
       
+      
+      
+      for (i in seq(1:(length(levels(groupIdentities$Group)) - 1))) {
+        
+        workingptable <- ptable %>% #put data back into wide format
+          group_by(m.z) %>% #t test will be applied for each of these metabolites
+          dplyr::mutate(
+            pvalue = t.test(
+                     unlist(get(paste0("group", 1))), 
+                     unlist(get(paste0("group", i+1)))
+                   )$p.value 
+            )
+
+        vaName <- paste0("pvalue - ", levels(groupIdentities$Group)[i+1])
+        ptable[[vaName]] <- workingptable$pvalue
+        ptable <- ptable %>% dplyr::select(-paste0("group", i+1))
+        
+      }
       
       ptable$group1 <- NULL
-      ptable$group2 <- NULL
       
       ptable
       
@@ -187,32 +212,54 @@ server <- function(input, output, session) {
       req(input$file1)
       ptable <- req(ptable())
       ptable <- merge(key[,1:2], ptable, by.y = "m.z", by.x ="key")
-      ptable <- ptable[order(ptable$pvalue),] #order by pvalue
       ptable$key <- NULL
-      names(ptable) <- c("m.z", "pvalue")
+      ptable <- ptable[order(ptable[, 2]),] #order by pvalue
       ptable <- ptable[!duplicated(ptable),]
+      names(ptable) <- gsub("pvalue - ", "", names(ptable))
       
       head(ptable)
       
       
     }, digits = -1)
     
+    temp_directory <- paste0(tempdir(), as.integer(Sys.time()), "/")
     
     output$downloadPtable <- downloadHandler(
-      filename = function(){paste(input$plotTitles, "- ptable.csv")}, 
-      content = function(fname){
+      filename = function() {
+        paste0(input$plotTitles, "- ptables.zip")
+      },
+      
+      content = function(file) {
+        ptable = as.data.frame(req(ptable()))
+        ptable = merge(key[,1:2], ptable, by.y = "m.z", by.x ="key")
+        ptable$key = NULL
         
-        ptable <- req(ptable())
-        ptable <- merge(key[,1:2], ptable, by.y = "m.z", by.x ="key")
-        ptable <- ptable[order(ptable$pvalue),] #order by pvalue
-        ptable$key <- NULL
-        names(ptable) <- c("m.z", "pvalue")
-        ptable <- ptable[!duplicated(ptable),]
-        write.csv(ptable, fname, row.names = FALSE)
+        dir.create(temp_directory)
         
-      }
+        for (i in names(ptable)) {
+          
+          if (i == "m.z") {} else {
+            p = ptable[, c("m.z", i)]
+            names(p) = c("m.z", "pvalue")
+            p = p[which(is.na(p[, 2]) == FALSE),]
+            p = p[order(p[, 2]),]
+            names(p) = c("m.z", "pvalue")
+            file_name = gsub("pvalue - ", "", i)
+            write.csv(p, paste0(temp_directory, file_name, ".csv"), row.names = FALSE)
+          }
+        }
+        
+        zip::zip(
+          zipfile = file,
+          files = dir(temp_directory),
+          root = temp_directory
+        )
+        
+      },
+      contentType = "application/zip"
+      
     )
-    
+
     
     # Print NMDS ----
     
@@ -267,7 +314,6 @@ server <- function(input, output, session) {
   # IPS outputs -----------------------
   
   IPS <- reactive({
-    
     req(input$files2)
     IPS <- data.frame(Pathway = character(),
                       IPS = numeric(),
@@ -290,7 +336,6 @@ server <- function(input, output, session) {
       names(IPSworking) <- c("Pathway", "IPS", "Log2(IPS)")
       IPSworking$ID <- gsub(".csv", "", input$files2[i,]$name)
       IPSworking <- IPSworking[order(-IPSworking$IPS),]
-      IPSworking <- IPSworking[1:10, ]
       
       IPS <- rbind(IPS, IPSworking)
       
@@ -323,7 +368,6 @@ server <- function(input, output, session) {
   
   output$IPSHeatmap <- renderPlot({
     
-    
     IPS <- req(IPS())
     
     IPS$IPS <- NULL
@@ -339,7 +383,7 @@ server <- function(input, output, session) {
     
     if (input$naToZero == TRUE) {
       
-      IPS[is.na(IPS)] = 0
+      IPS[is.na(IPS)] <- 0
       
     }
     
