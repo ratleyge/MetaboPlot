@@ -77,7 +77,7 @@ server <- function(input, output, session) {
       checkboxGroupInput(
         "groupsIncluded",
         "Select groups to analyze:",
-        c(unique(groupIdentities$Group)),
+        c(sort(unique(groupIdentities$Group))),
       ),
       actionButton("saveGroups", "Save Selection")
     ),
