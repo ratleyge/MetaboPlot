@@ -70,11 +70,39 @@ server <- function(input, output, session) {
   })
   
   
+  observeEvent(input$selectGroups, {
+    
+    groupIdentities <- myData$groupIdentities
+    showModal(modalDialog(fluidRow(
+      checkboxGroupInput(
+        "groupsIncluded",
+        "Select groups to analyze:",
+        c(unique(groupIdentities$Group)),
+      ),
+      actionButton("saveGroups", "Save Selection")
+    ),
+    easyClose = TRUE,
+    footer = NULL))
+    
+  })
+  
+  observeEvent(input$saveGroups, {
+
+    groupIdentities <- myData$groupIdentities
+    groupIdentities <- groupIdentities[which(groupIdentities$Group %in% input$groupsIncluded), , drop = FALSE]
+    groupIdentities$Group <- as.factor(as.character(groupIdentities$Group))
+    myData$groupIdentities <- groupIdentities
+    workingDf <<- workingDf[,c("m.z", rownames(groupIdentities))]
+    updateSelectInput(session = session, inputId = "relevelSelector", choices = levels(groupIdentities$Group))
+    
+  })
+
+  
   observeEvent(input$Submit, {
     showModal(modalDialog("Processing data...", footer=NULL))
     
     data.scores <- isolate({
-      
+      browser
       groupIdentities <- req(myData$groupIdentities)
       
       # Transpose Data and set column names as m/z
@@ -160,7 +188,9 @@ server <- function(input, output, session) {
       }
       
       transdf$Group <- groupIdentities$AutoGroup
+      myData$groupIdentities <- groupIdentities
       transdf$Group <- as.factor(transdf$Group)
+      transdf <- transdf[, c(which(colSums(transdf[, 1:(length(transdf)-1)]) != 0), length(transdf))]
       transdf <<- transdf
       
     })
@@ -290,7 +320,7 @@ server <- function(input, output, session) {
     if ("limma" %in% input$Plots) {
       
       req(transdf)
-      generateLimmaServer("limmaMod", transdf, input$plotTitles)
+      generateLimmaServer("limmaMod", transdf, input$plotTitles, myData$groupIdentities)
       
     } else { hideTab("plots", target = "Limma") }
     
