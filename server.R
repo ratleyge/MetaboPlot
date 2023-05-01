@@ -32,11 +32,17 @@ server <- function(input, output, session) {
     groupIdentities <- as.data.frame(t(groupIdentities))
     names(groupIdentities) <- "Group"
     groupIdentities$Group <- as.factor(groupIdentities$Group)
-    myData$groupIdentities <- groupIdentities
+    
     
     workingDf <- workingDf[-1,]
-    workingDf <<- workingDf
+    workingDf <- as.data.frame(sapply(workingDf, as.numeric))
+    workingDf <- workingDf[rowMeans(workingDf == 0) < (input$missingness/100), ]
+    workingDf <- workingDf[, which(colSums(workingDf) > 0)]
     
+    groupIdentities <- groupIdentities[names(workingDf[, 2:length(workingDf)]),, drop = FALSE]
+    
+    workingDf <<- workingDf
+    myData$groupIdentities <- groupIdentities
     head(workingDf[, 1:6])
     
   }) 

@@ -140,7 +140,7 @@ generateLimmaServer <-
               workingTopTable$label <- NA
               workingTopTable$label[workingTopTable$diffex != "NO"] <-
                 workingTopTable$m.z[workingTopTable$diffex != "NO"]
-              browser()
+
               p <-
                 ggplot(data = workingTopTable,
                        aes(

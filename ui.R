@@ -105,7 +105,9 @@ ui <- navbarPage(
                  ),
                ),
                
-               checkboxInput("outlierRemove", "Remove outlier samples.", TRUE),
+               h4("Quality Control"),
+               numericInput("missingness", "Remove metabolites with % missingness greater than or equal to:", 90, min = 0, max = 100),
+               checkboxInput("outlierRemove", "Remove outlier samples.", FALSE),
                
                actionButton("Submit", "Submit Data"),
                
