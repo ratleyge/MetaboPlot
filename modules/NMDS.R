@@ -38,8 +38,8 @@ generateNmdsServer <- function(id, data.scores, groupIdentities, transdf, anoVal
         
         
         if (anoVal == TRUE) {
-          
-          ano <- anosim(transdf, groupIdentities[, 1], distance = "bray", permutations = 9999)
+
+          ano <- anosim(transdf[, -length(transdf)], groupIdentities[, 1], distance = "bray", permutations = 9999)
           xx <- xx + labs(subtitle = paste("ANOSIM stat:", 
                                            signif(ano$statistic, digits = 2),
                                            "Significance:", 

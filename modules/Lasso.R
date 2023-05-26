@@ -16,7 +16,6 @@ generateLassoServer <- function(id, transdf, plotTitle) {
   
   moduleServer(id, function(input, output, session) {
     
-    
     coefs <- isolate({
         y = transdf$Group
         x = as.matrix(transdf[, 1:(length(transdf)-1)])
@@ -64,7 +63,7 @@ generateLassoServer <- function(id, transdf, plotTitle) {
     
     
     output$downloadLasso <- downloadHandler(
-      filename = function(){paste(plotTitles, "- Lasso Coefficients.csv")}, 
+      filename = function(){paste(input$plotTitles, "- Lasso Coefficients.csv")}, 
       content = function(fname){
         req(coefs)
         write.csv(coefs, fname, row.names = FALSE)

@@ -36,26 +36,43 @@ generateHeatmapServer <- function(id, groupIdentities, transdf, ptable) {
   
   moduleServer(id, function(input, output, session) {
     
-    plotHeight <- min(1000, 0.1 * length(rownames(workingDf)))
+    plotHeight <- 800
     ptable <- as.data.frame(ptable)
     
     output$heatmap <- renderPlot({
         
-        ptable <- ptable[order(ptable[, 2]),]
-        
-        if (input$showSig == FALSE) {
+        if (length(levels(groupIdentities$Group)) > 2) {
           
-          ptable <- ptable[1:input$featureNumber, 1] %>% sapply(as.character)
+          ptable <- ptable[order(ptable$AnovaPvalue),]
           
         } else {
           
-          ptable <- ptable[which(ptable[, 2] < 0.05), 1] %>% sapply(as.character)
+          ptable <- ptable[order(ptable[, 2]),] #order by pvalue
+          
+        }
+        
+      
+        if (input$showSig == FALSE) {
+          
+          ptablenums <- ptable[1:input$featureNumber, 1] %>% sapply(as.character)
+          
+        } else {
+          
+          if (length(levels(groupIdentities$Group)) > 2) {
+            
+            ptablenums <- ptable[which(ptable$AnovaPvalue < 0.05), 1] %>% sapply(as.character)
+            
+          } else {
+            
+            ptablenums <- ptable[which(ptable[, 2] < 0.05), 1] %>% sapply(as.character)
+            
+          }
           
         }
         
         
         #create a df with the top 100 metabolites between mean Control and AD
-        heatmap_data <- transdf[,c(which(as.character(names(transdf)) %in% ptable == TRUE | as.character(names(transdf)) == "Group"))]
+        heatmap_data <- transdf[,c(which(as.character(names(transdf)) %in% ptablenums == TRUE | as.character(names(transdf)) == "Group"))]
         
         rowAnnot <- data.frame(Group = heatmap_data$Group)
         heatmap_data$Group <- NULL

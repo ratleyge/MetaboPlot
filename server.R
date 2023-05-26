@@ -9,37 +9,46 @@ server <- function(input, output, session) {
     
     req(input$file1)
     workingDf <- read.csv(input$file1$datapath)
+    workingDf <- rbind(workingDf[1, ], na.omit(workingDf))
     
     if (input$metAnnotations == "annotOnly") {
       
       workingDf <- workingDf[c(1 , which(workingDf$Name != "")),]
       workingDf$m.z <- workingDf$Name
       
-    } 
-    
+    } else {
+      
+      workingDf$m.z <- gsub(" Da", "", workingDf$Bucket.label)
+      workingDf$m.z <- as.numeric(workingDf$m.z)
+      
+    }
 
-    workingDf$m.z <- gsub(" Da", "", workingDf$Bucket.label)
-    workingDf$m.z <- as.numeric(workingDf$m.z)
     workingDf$Bucket.label <- NULL
-    
-    
     workingDf$RT <- NULL
     workingDf$Name <- NULL
     workingDf$Formula <- NULL
-    
+
     groupIdentities <- data.frame(workingDf[1, ])
     groupIdentities$m.z <- NULL
     groupIdentities <- as.data.frame(t(groupIdentities))
     names(groupIdentities) <- "Group"
     groupIdentities$Group <- as.factor(groupIdentities$Group)
     
-    
     workingDf <- workingDf[-1,]
-    workingDf <- as.data.frame(sapply(workingDf, as.numeric))
-    workingDf <- workingDf[rowMeans(workingDf == 0) < (input$missingness/100), ]
-    workingDf <- workingDf[, which(colSums(workingDf) > 0)]
+    rownames(workingDf) <- paste("met", 1:length(workingDf$m.z))
+    key <- data.frame(Key = paste("met", 1:length(workingDf$m.z)), m.z = workingDf$m.z)
+    workingDf$m.z <- NULL
+    workingDf[] <- sapply(workingDf, as.numeric)
     
-    groupIdentities <- groupIdentities[names(workingDf[, 2:length(workingDf)]),, drop = FALSE]
+    workingDf <- workingDf[rowMeans(workingDf == 0) < (input$missingness/100), , drop = FALSE]
+    workingDf <- workingDf[, which(colSums(workingDf) > 0), drop = FALSE]
+    
+    groupIdentities <- groupIdentities[names(workingDf),, drop = FALSE]
+    
+    
+    workingDf$Key <- rownames(workingDf)
+    workingDf <- merge(key, workingDf, by = "Key")
+    workingDf$Key <- NULL
     
     workingDf <<- workingDf
     myData$groupIdentities <- groupIdentities
@@ -108,7 +117,7 @@ server <- function(input, output, session) {
     showModal(modalDialog("Processing data...", footer=NULL))
     
     data.scores <- isolate({
-      browser
+
       groupIdentities <- req(myData$groupIdentities)
       
       # Transpose Data and set column names as m/z
@@ -235,6 +244,15 @@ server <- function(input, output, session) {
       
       ptable$group1 <- NULL
       
+      
+      if (length(levels(groupIdentities$Group)) > 2) {
+
+        AnovaTable <- CalculateAnova(transdf)
+        ptable <- merge(ptable, AnovaTable, by = "m.z")
+        
+        }
+      
+
       ptable
       
       
@@ -249,7 +267,18 @@ server <- function(input, output, session) {
       ptable <- req(ptable())
       ptable <- merge(key[,1:2], ptable, by.y = "m.z", by.x ="key")
       ptable$key <- NULL
-      ptable <- ptable[order(ptable[, 2]),] #order by pvalue
+      
+      if (length(levels(groupIdentities$Group)) > 2) {
+        
+        ptable <- ptable[order(ptable$AnovaPvalue),]
+        
+      } else {
+        
+        ptable <- ptable[order(ptable[, 2]),] #order by pvalue
+        
+      }
+      
+      
       ptable <- ptable[!duplicated(ptable),]
       names(ptable) <- gsub("pvalue - ", "", names(ptable))
       
@@ -358,12 +387,21 @@ server <- function(input, output, session) {
     
     
     for(i in 1:length(input$files2[,1])) {
-      
+
       IPSworking <- read.csv(input$files2[i,]$datapath)
       IPSworking <- IPSworking[,1:6] # Keep only relevant columns
       IPSworking$Weighted_Metabolites <- ((IPSworking$Hits.sig + 1) ^ 2) + (IPSworking$Hits.total - IPSworking$Hits.sig)
       IPSworking$Numerator <- IPSworking$Weighted_Metabolites / (IPSworking$Pathway.total * IPSworking$Expected)
-      IPSworking$Squared_P_Value <- IPSworking$FET ^ 2
+      if (is.null(IPSworking$FET)) {
+        
+        IPSworking$Squared_P_Value <- IPSworking$P.Fisher. ^ 2
+        
+      } else {
+        
+        IPSworking$Squared_P_Value <- IPSworking$FET ^ 2
+        
+      }
+      
       IPSworking$IPS_Value <- IPSworking$Numerator / IPSworking$Squared_P_Value + 1
       
       # Clean up (Keep only pathway name, IPS, and Map)
@@ -441,7 +479,7 @@ server <- function(input, output, session) {
       
     }
     
-  })
+  }, height = 600)
   
   
   

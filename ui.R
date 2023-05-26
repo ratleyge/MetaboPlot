@@ -61,6 +61,9 @@ ui <- navbarPage(
                  selected = "mzOnly"
                  ),
                
+               h4("Quality Control"),
+               numericInput("missingness", "Remove metabolites with % missingness greater than or equal to:", 90, min = 0, max = 100),
+               checkboxInput("outlierRemove", "Remove outlier samples.", FALSE),
                
                h4("Groups"),
                uiOutput("Groups"),
@@ -104,10 +107,6 @@ ui <- navbarPage(
                    FALSE
                  ),
                ),
-               
-               h4("Quality Control"),
-               numericInput("missingness", "Remove metabolites with % missingness greater than or equal to:", 90, min = 0, max = 100),
-               checkboxInput("outlierRemove", "Remove outlier samples.", FALSE),
                
                actionButton("Submit", "Submit Data"),
                

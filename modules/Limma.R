@@ -127,19 +127,28 @@ generateLimmaServer <-
             
             output[[plotname]] <- renderPlot({
               
-              
               workingTopTable$diffex <- "NO"
-              
-              if (length(rownames(workingTopTable[which(workingTopTable$adj.P.Val < 0.05), ])) > 0) {
-                workingTopTable[which(workingTopTable[, "logFC"] > 0.6 &
-                                        workingTopTable$adj.P.Val < 0.05),]$diffex <- "UP"
-                # if log2Foldchange < -0.6 and pvalue < 0.05, set as "DOWN"
-                workingTopTable[which(workingTopTable[, "logFC"] < -0.6 &
-                                        workingTopTable$adj.P.Val < 0.05),]$diffex <- "DOWN"
-              }
               workingTopTable$label <- NA
-              workingTopTable$label[workingTopTable$diffex != "NO"] <-
-                workingTopTable$m.z[workingTopTable$diffex != "NO"]
+                
+              if (length(rownames(workingTopTable[which(workingTopTable$logFC > 0.6), ])) > 0 & length(rownames(workingTopTable[which(workingTopTable[which(workingTopTable$logFC > 0.6), ]$adj.P.Val < 0.05), ])) > 0) {
+                
+                workingTopTable[which(workingTopTable$logFC > 0.6 &
+                                        workingTopTable$adj.P.Val < 0.05),]$diffex <- "UP"
+                
+                workingTopTable$label[workingTopTable$diffex != "NO"] <-
+                  workingTopTable$m.z[workingTopTable$diffex != "NO"]
+                
+              }
+              
+              if (length(rownames(workingTopTable[which(workingTopTable$logFC > 0.6), ])) > 0 & length(rownames(workingTopTable[which(workingTopTable[which(workingTopTable$logFC < -0.6), ]$adj.P.Val < 0.05), ])) > 0) {
+                # if log2Foldchange < -0.6 and pvalue < 0.05, set as "DOWN"
+                workingTopTable[which(workingTopTable$logFC < -0.6 &
+                                        workingTopTable$adj.P.Val < 0.05),]$diffex <- "DOWN"
+                
+                workingTopTable$label[workingTopTable$diffex != "NO"] <-
+                  workingTopTable$m.z[workingTopTable$diffex != "NO"]
+              }
+              
 
               p <-
                 ggplot(data = workingTopTable,
