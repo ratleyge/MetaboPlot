@@ -6,7 +6,7 @@
 <p>To run MetaboPlot locally, you'll need to install several dependencies: </p>
 
 ``` R
-install.packages("factoextra", "tidyr", "pheatmap", "grid", "ggpubr", "ggrepel", "vegan", "ggrepel", "shinythemes", "glmnet", "glmnetUtilscaret", "BiocManager", repos='http://cran.rstudio.com/')
+install.packages(pkgs = c("factoextra", "tidyr", "pheatmap", "grid", "ggpubr", "ggrepel", "vegan", "ggrepel", "shinythemes", "glmnet", "glmnetUtilscaret", "BiocManager", "zip", "shinyccsloaders", "caret"), repos='http://cran.rstudio.com/')
 # if you are getting an error that limma and Biobase are not available for your version of R, run the line of code below then try again 
 # options(BioC_mirror = "http://bioconductor.org")
 BiocManager::install("limma")
