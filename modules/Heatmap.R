@@ -26,7 +26,11 @@ generateHeatmapUI <- function (id) {
       ),
 
     ),
-    plotOutput(outputId = ns("heatmap")),
+    
+    withSpinner(
+      plotOutput(outputId = ns("heatmap")),
+      type = getOption("spinner.type", default = 5))
+    
   )
   
 }

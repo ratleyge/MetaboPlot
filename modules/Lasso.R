@@ -93,7 +93,7 @@ generateLassoServer <- function(id, transdf, plotTitle) {
         
         g
       
-    }, height = length(coefs[abs(coefs$Beta) > 0, ]$Beta) * 20)
+    }, height = 400)
     
   })
   

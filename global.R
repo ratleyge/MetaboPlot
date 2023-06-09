@@ -15,12 +15,14 @@ library(caret)
 library(dplyr)
 library(zip)
 library(shinycssloaders)
+library(plotly)
 
 source("modules/NMDS.R")
 source("modules/Heatmap.R")
 source("modules/Limma.R")
 source("modules/Lasso.R")
 source("modules/Anova.R")
+source("modules/Data upload functions.R")
 
 
 onStop(function() {
