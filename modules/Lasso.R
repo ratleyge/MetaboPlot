@@ -20,7 +20,14 @@ generateLassoServer <- function(id, transdf, plotTitle) {
         y = transdf$Group
         x = as.matrix(transdf[, 1:(length(transdf)-1)])
         
-        cv_model <- cv.glmnet(scale(x), 
+        # log transform
+        x[x == 0] <-1 #Impute zeros
+        x <- log2(x) #Log transform
+        
+        #Pareto Scale 
+        x <- paretoScale(x) #apply the function
+        
+        cv_model <- cv.glmnet(x, 
                               y, 
                               alpha = 1, 
                               standardize = TRUE,
@@ -36,7 +43,7 @@ generateLassoServer <- function(id, transdf, plotTitle) {
         #abline(v=log(best_lambda), col="red")
         #abline(v=log(cv_model$lambda.1se), col="red")
         
-        best_model <- glmnet(scale(x), 
+        best_model <- glmnet(x, 
                              y, 
                              alpha = 1, 
                              standardize = TRUE,

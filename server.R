@@ -1,6 +1,6 @@
 server <- function(input, output, session) {
   
-  options(shiny.maxRequestSize=100*1024^2) # Allow users to upload large files
+  options(shiny.maxRequestSize=200*1024^2) # Allow users to upload large files
   myData <- reactiveValues() # This allows you to define variables that will carry across functions
   
   # Preview Data ----
@@ -55,9 +55,9 @@ server <- function(input, output, session) {
       
       # The working Df should only contain intensity values, sample names will be in the column names, key for the metabolite should be in the row names
       workingDf[] <- sapply(workingDf, as.numeric)
-      
+
       # Remove rows with a certain % missingness as defined by the user
-      workingDf <- workingDf[rowMeans(workingDf == 0) < (input$missingness/100), , drop = FALSE]
+      workingDf <- removeGroupMissingness(workingDf, groupIdentities, input$wholeMissingness, input$groupMissingness)
       
       # If a sample has all 0s, remove it
       workingDf <- workingDf[, which(colSums(workingDf) > 0), drop = FALSE]
@@ -76,6 +76,15 @@ server <- function(input, output, session) {
       head(workingDf[, 1:6])
       
     }) 
+  
+  output$dimensionOutput <- renderText({
+    req(input$file1)
+    req(input$metAnnotations)
+    req(input$wholeMissingness)
+    req(input$groupMissingness)
+    req(myData$groupIdentities)
+    paste0(length(rownames(workingDf)), " peaks across ", length(names(workingDf)), " samples.")
+  })
     
   
   # Group identities ----
@@ -153,7 +162,7 @@ server <- function(input, output, session) {
         data.scores <- isolate({
           
           groupIdentities <- req(myData$groupIdentities)
-          
+
           # Transpose Data and set column names as m/z
           transdfscores <- as.data.frame(t(workingDf))
           
@@ -218,12 +227,17 @@ server <- function(input, output, session) {
           
           req(input$file1)
           req(workingDf)
-          
+
           groupIdentities <- myData$groupIdentities
           workingDf <- cbind(key = c(paste0("met",seq(1:(length(rownames(workingDf)))))), workingDf)
           key <<- workingDf[, 1:2]
           workingDf$m.z <- NULL
           
+          
+          # Quality control functions
+          if (input$transformQC) workingDf[, c(2:length(colnames(workingDf)))] <<- logTransform(workingDf[, c(2:length(colnames(workingDf)))])
+          if (input$scalingQC) workingDf[, c(2:length(colnames(workingDf)))] <<- paretoScale(workingDf[, c(2:length(colnames(workingDf)))])
+
           transdf <- as.data.frame(t(workingDf[, c(2:length(colnames(workingDf)))]))
           transdf <- as.data.frame(sapply(transdf, as.numeric))
           colnames(transdf) <- workingDf$key
@@ -411,221 +425,253 @@ server <- function(input, output, session) {
       removeModal()
       
   })
-  
-  # MetaboAnalyst outputs ---------------------
-  # Preview Data ----
-  #isolate function- runs one time after hit submit
-observeEvent(input$SubmitMA, 
-             { 
-               #browser()
-    tempdirect <<- paste0(tempdir(), "FunctionalAnalysis", "/")
-    unlink(paste0(tempdirect), recursive = TRUE)
-   output$viewInputTable <- isolate({
-     #browser()
-
-    trace("download.file", where = asNamespace("MetaboAnalystR"), tracer = quote(method <- "wininet"))
-    myOrganism <- input$Organisms
-    myMode <- input$IonMode
-    tempdirect <- paste0(tempdir(), "FunctionalAnalysis", "/")
-    dir.create(tempdirect)
-    print(list.files(tempdirect))
     
-    for (i in 1:length(input$file3$datapath)) {
-      
-      mSet <- NULL
-      all.mzsn <- NULL
-      mdata.all <- NULL
-      mdata.siggenes <- NULL
-      anal.type <- NULL
-      api.base <- NULL
-      err.vec <- NULL
-      meta.selected <- NULL
-      module.count <- NULL
-      msg.vec <- NULL
-      smpdbpw.count <- NULL
-      url.pre <- NULL
-      
+    # MetaboAnalyst outputs ---------------------
     
-      getwd()
-      wd_mum_raw<-paste0(getwd(), "/mum_raw.qs")
-      wd_mum_res<-paste0(getwd(), "/mum_res.qs")
-      wd_hsa_mfn<-paste0(getwd(), "/hsa_mfn.qs")
-      wd_mummi_matched<-paste0(getwd(), "/mummichog_matched_compound_all.csv")
-      wd_mummi_pathway<-paste0(getwd(), "/mummichog_pathway_enrichment.csv")
-      wd_mummi_query<-paste0(getwd(), "/mummichog_query.json")
-      wd_peaks<-paste0(getwd(), "/peaks_to_paths_0_dpi72.png")
-      wd_scattermum<-paste0(getwd(), "/scattermum.json")
-
-      
-      #Create dynamic file name and write output as csv
-      directoryName <<- paste0(tempdirect, gsub("_pval.csv","",input$file3[i,]$name), "/")
-      dir.create(directoryName)
-      mSet<-InitDataObjects("mass_all", "mummichog", FALSE)
-      mSet<-SetPeakFormat(mSet, "rmp")
-      mSet<-UpdateInstrumentParameters(mSet, input$MT, myMode, "no", 0.02);
-      mSet<-Read.PeakListData(mSet, input$file3[i,]$datapath);
-      mSet<-SanityCheckMummichogData(mSet)
-      mSet<-SetPeakEnrichMethod(mSet, "mum", "v2")
-      mSet<-SetMummichogPval(mSet, 0.0)
-      mSet<-PerformPSEA(mSet, myOrganism, "current", 3 , 100)
-      mSet<-PlotPeaks2Paths(mSet, "peaks_to_paths_0_", "png", 72, width=NA)
-      
-      
-      
-      file.move(c(wd_mum_raw, wd_mum_res, wd_hsa_mfn,wd_mummi_matched,wd_mummi_pathway,wd_mummi_query, wd_peaks, wd_scattermum),directoryName)
-      print(list.files(tempdirect))
-      #file.remove(from=c(wd_mum_raw, wd_mum_res, wd_hsa_mfn,wd_mummi_matched,wd_mummi_pathway,wd_mummi_query, wd_peaks, wd_scattermum))
-      
-  
-      
-      
-    }
-    
-      
-    }
-   )})
-
-  
-
-  output$downloadfiles <- downloadHandler(
-    filename = function() {
-      paste0("Functional Analysis.zip")
-    },
-    
-    content = function(FunctionalAnalysis2) {
-      browser()
-      filestodownload<- c()
-      
-      for (i in list.dirs(tempdirect)) {
-        
+    output$metaboAnalystInstalled <- renderText({
+      if(!require(MetaboAnalystR)) {
+        paste("<h1>You do not have MetaboAnalystR installed on your computer, so you will not be able to use the functions in this tab.</h1>")
       }
-      for(i in 1:length(list.files(tempdirect, recursive =  TRUE))) filestodownload[i]<-paste0(tempdirect,"/",list.files(tempdirect, recursive =  TRUE)[i])
-      zip::zipr(
-        #browser()
-        zipfile = FunctionalAnalysis2,
-        files= filestodownload,
-        recurse = TRUE,
-        include_directories = TRUE,
-        root = tempdirect
-      )
-      
-      
-    },
-    contentType = "application/zip"
+    })
     
-  )
-    
-  #may need to have a directory in the temprorary directory
-#use p-value tables as an example of how to download files in one zip file 
-  # IPS outputs -----------------------
-  
-  IPS <- reactive({
-    req(input$files3)
-    IPS <- data.frame(Pathway = character(),
-                      IPS = numeric(),
-                      `Log2(IPS)` = numeric(),
-                      ID = factor())
-    
-    
-    for(i in 1:length(input$files3[,1])) {
-      
-      IPSworking <- read.csv(input$files3[i,]$datapath)
-      IPSworking <- IPSworking[,1:6] # Keep only relevant columns
-      IPSworking$Weighted_Metabolites <- ((IPSworking$Hits.sig + 1) ^ 2) + (IPSworking$Hits.total - IPSworking$Hits.sig)
-      IPSworking$Numerator <- IPSworking$Weighted_Metabolites / (IPSworking$Pathway.total * IPSworking$Expected)
-      if (is.null(IPSworking$FET)) {
-        
-        IPSworking$Squared_P_Value <- IPSworking$P.Fisher. ^ 2
-        
-      } else {
-        
-        IPSworking$Squared_P_Value <- IPSworking$FET ^ 2
-        
-      }
-      
-      IPSworking$IPS_Value <- IPSworking$Numerator / IPSworking$Squared_P_Value + 1
-      
-      # Clean up (Keep only pathway name, IPS, and Map)
-      IPSworking <- IPSworking[,c(1,10)]
-      IPSworking$log2 <- log2(IPSworking$IPS_Value)
-      names(IPSworking) <- c("Pathway", "IPS", "Log2(IPS)")
-      IPSworking$ID <- gsub(".csv", "", input$files3[i,]$name)
-      IPSworking <- IPSworking[order(-IPSworking$IPS),]
-      
-      IPS <- rbind(IPS, IPSworking)
-      
-    }
-    
-    IPS$ID <- as.factor(IPS$ID)
-    updateSelectInput(session = session, inputId = "orderBySelector", choices = levels(IPS$ID))
-    
-    IPS <- IPS
-    
-    
-  })
-  
-  
-  output$IPS <- renderTable({
-    req(IPS())
-    head(IPS())
-    
-  })
-  
-  output$downloadIPS <- downloadHandler(
-    filename = function(){paste("IPS table.csv")}, 
-    content = function(fname){
-      
-      write.csv(IPS(), fname, row.names = FALSE)
-      
-    }
-  )
-  
-  
-  output$IPSHeatmap <- renderPlot({
-    
-    IPS <- req(IPS())
-    
-    IPS$IPS <- NULL
-    
-    #Long form
-    IPS <- IPS %>%
-      pivot_wider(names_from = ID,
-                  values_from = `Log2(IPS)`) %>%
-      as.data.frame()
-    
-    rownames(IPS) <- IPS$Pathway
-    IPS$Pathway <- NULL
-    
-    if (input$naToZero == TRUE) {
-      
-      IPS[is.na(IPS)] <- 0
-      
-    }
-    
-    if (input$orderBySelector != "") {
-      
-      col <- input$orderBySelector
-      IPS <- IPS[order(-IPS[,col]),]
-      IPS <- IPS %>%
-        dplyr::select(all_of(col), everything())
-      
-      
-      pheatmap(IPS,
-               cluster_rows = input$IPSclustRow,
-               cluster_cols = input$IPSclustCol,
-               angle_col = 45,
-               fontsize = 12,
-               scale = "column",
-      )
-      
-    }
-    
-  }, height = 600)
-  
-  
-  
+    # Preview Data ----
+    #isolate function- runs one time after hit submit
+    observeEvent(input$SubmitMA, 
+                 { 
+                   #browser()
+                   show_modal_spinner()
+                   tempdirect <<- paste0(tempdir(), "FunctionalAnalysis", "/")
+                   unlink(paste0(tempdirect), recursive = TRUE)
+                   isolate({
+                     
+                     trace("download.file", where = asNamespace("MetaboAnalystR"), tracer = quote(method <- "wininet"))
+                     myOrganism <- input$Organisms
+                     myMode <- input$IonMode
+                     tempdirect <- paste0(tempdir(), "FunctionalAnalysis", "/")
+                     dir.create(tempdirect)
+                     print(list.files(tempdirect))
+                     plotdataframes <<- data.frame()
+                     
+                     for (i in 1:length(input$file3$datapath)) {
+                       
+                       mSet <- NULL
+                       #browser()
+                       all.mzsn <- NULL
+                       mdata.all <- NULL
+                       mdata.siggenes <- NULL
+                       anal.type <- NULL
+                       api.base <- NULL
+                       err.vec <- NULL
+                       meta.selected <- NULL
+                       module.count <- NULL
+                       msg.vec <- NULL
+                       smpdbpw.count <- NULL
+                       url.pre <- NULL
+                       
+                       
+                       getwd()
+                       wd_mum_raw<-paste0(getwd(), "/mum_raw.qs")
+                       wd_mum_res<-paste0(getwd(), "/mum_res.qs")
+                       #browser()
+                       wd_hsa_mfn<-paste0(getwd(), "/", input$Organisms,".qs")
+                       wd_mummi_matched<-paste0(getwd(), "/mummichog_matched_compound_all.csv")
+                       wd_mummi_pathway<-paste0(getwd(), "/mummichog_pathway_enrichment.csv")
+                       wd_mummi_query<-paste0(getwd(), "/mummichog_query.json")
+                       wd_peaks<-paste0(getwd(), "/peaks_to_paths_0_dpi72.png")
+                       wd_scattermum<-paste0(getwd(), "/scattermum.json")
+                       
+                       
+                       #Create dynamic file name and write output as csv
+                       
+                       subfolder_names<- input$file3[i,]$name
+                       directoryName <<- paste0(tempdirect, gsub("_pval.csv","",input$file3[i,]$name), "/")
+                       dir.create(directoryName)
+                       mSet<-InitDataObjects("mass_all", "mummichog", FALSE);
+                       mSet<-SetPeakFormat(mSet, "rmp")
+                       mSet<-UpdateInstrumentParameters(mSet, input$MT, myMode, "no", 0.02);
+                       mSet<-Read.PeakListData(mSet, input$file3[i,]$datapath);
+                       mSet<-SanityCheckMummichogData(mSet)
+                       mSet<-SetPeakEnrichMethod(mSet, "mum", "v2")
+                       mSet<-SetMummichogPval(mSet, 0.05)
+                       mSet<-PerformPSEA(mSet, myOrganism, "current", 3 , 100)
+                       mSet<-PlotPeaks2Paths(mSet, "peaks_to_paths_0_", "png", 72, width=NA)
+                       enrichmentData <- fromJSON(file = wd_scattermum)
+                       enrichmentData <- data.frame(
+                         Pathway = enrichmentData$pathnames, 
+                         Pvalue = enrichmentData$pval, 
+                         log10Pvalue = -log10(enrichmentData$pval),
+                         Enrichment = enrichmentData$enr
+                       )
+                       df<-enrichmentData[rev(order(enrichmentData$log10Pvalue)),]
+                       df$Label <- NA
+                       df[1:min(5,length(rownames(df))),]$Label <- df[1:min(5,length(rownames(df))),]$Pathway
+                       ggplot(df, aes(x = Enrichment, y = log10Pvalue, label = Label)) + 
+                         geom_point(aes(color = log10Pvalue)) + 
+                         scale_color_gradient(low = "Yellow", high = "Red") + 
+                         ggrepel::geom_text_repel() + 
+                         theme_classic()
+                       ggsave(paste0(gsub("_pval.csv","",input$file3[i,]$name), "_myplot.png.png"), path= directoryName)
+                       df$sample <- input$file3[i,]$name
+                       plotdataframes <<- rbind(plotdataframes, df)
+                       
+                       
+                       
+                       
+                       file.move(c(wd_mum_raw, wd_mum_res, wd_hsa_mfn,wd_mummi_matched,wd_mummi_pathway,wd_mummi_query, wd_peaks, wd_scattermum), directoryName)
+                       print(list.files(tempdirect))
+                       #file.remove(from=c(wd_mum_raw, wd_mum_res, wd_hsa_mfn,wd_mummi_matched,wd_mummi_pathway,wd_mummi_query, wd_peaks, wd_scattermum))
+                       
+                       
+                     }
+                     
+                     
+                   })
+                   output$downloadfiles <- downloadHandler(
+                     filename = function() {
+                       paste0(tempdirect, "FunctionalAnalysisResults.zip")
+                     },
+                     
+                     content = function(FunctionalAnalysis2) {
+                       folderstodownload<-list.dirs(paste0(tempdirect, gsub("_pval.csv","",input$file3$name)))
+                       zip::zipr(
+                         zipfile = FunctionalAnalysis2,
+                         files= folderstodownload,
+                         recurse = TRUE,
+                         include_directories = TRUE,
+                         root = tempdirect
+                       )
+                       
+                       
+                     },
+                     contentType = "application/zip"
+                     
+                   )
+                   
+                   
+                   IPS<- reactive({
+                     req(input$file3)
+                     IPSinput<-(paste0(tempdirect,gsub("_pval.csv","",input$file3$name), "/mummichog_pathway_enrichment.csv"))
+                     IPS <- data.frame(Pathway = character(),
+                                       IPS = numeric(),
+                                       `Log2(IPS)` = numeric(),
+                                       ID = factor())
+                     
+                     
+                     for(i in 1:length(IPSinput)) {
+                       
+                       IPSworking <- read.csv(IPSinput[i])
+                       IPSworking <- IPSworking[,1:6] # Keep only relevant columns
+                       IPSworking$Weighted_Metabolites <- ((IPSworking$Hits.sig + 1) ^ 2) + (IPSworking$Hits.total - IPSworking$Hits.sig)
+                       IPSworking$Numerator <- IPSworking$Weighted_Metabolites / (IPSworking$Pathway.total * IPSworking$Expected)
+                       IPSworking$Squared_P_Value <- IPSworking$P.Fisher. ^ 2
+                       
+                       IPSworking$IPS_Value <- IPSworking$Numerator / IPSworking$Squared_P_Value + 1
+                       
+                       # Clean up (Keep only pathway name, IPS, and Map)
+                       IPSworking <- IPSworking[,c(1,10)]
+                       IPSworking$log2 <- log2(IPSworking$IPS_Value)
+                       names(IPSworking) <- c("Pathway", "IPS", "Log2(IPS)")
+                       IPSworking$ID <- gsub(".csv","",input$file3[i,]$name)
+                       IPSworking <- IPSworking[order(-IPSworking$IPS),]
+                       IPS <- rbind(IPS, IPSworking)
+                       
+                     }
+                     
+                     IPS$ID <- as.factor(IPS$ID)
+                     updateSelectInput(session = session, inputId = "orderBySelector", choices = levels(IPS$ID))
+                     
+                     IPS <- IPS
+                     
+                     
+                   })
+                   
+                   
+                   output$IPS <- renderTable({
+                     req(IPS())
+                     head(IPS())
+                     
+                   })
+                   
+                   output$IPSHeatmap <- renderPlot({
+                     
+                     IPS <- req(IPS())
+                     
+                     IPS$IPS <- NULL
+                     #Long form
+                     IPS <- IPS %>% 
+                       pivot_wider(names_from = ID,
+                                   values_from = `Log2(IPS)`) %>%
+                       as.data.frame()
+                     
+                     rownames(IPS) <- IPS$Pathway
+                     IPS$Pathway <- NULL
+                     
+                     
+                     if (input$naToZero == TRUE) {
+                       
+                       IPS[is.na(IPS)] <- 0
+                       
+                     }
+                     
+                     if (input$orderBySelector != "") {
+                       
+                       col <- input$orderBySelector
+                       IPS <- IPS[order(-IPS[,col]),]
+                       IPS <- IPS %>%
+                         dplyr::select(all_of(col), everything())
+                     }
+                     
+                     x <- pheatmap(IPS,
+                                   cluster_rows = input$IPSclustRow,
+                                   cluster_cols = input$IPSclustCol,
+                                   angle_col = 45,
+                                   fontsize = 12,
+                                   scale = "column",
+                     )
+                     
+                   }, height = 600)
+                   
+                   output$downloadIPS <- downloadHandler(
+                     filename = function(){paste("IPS Value Table.csv")}, 
+                     content = function(fname){
+                       
+                       write.csv(IPS(), fname, row.names = FALSE)
+                       
+                     }
+                   )
+                   
+                   
+                   
+                   #Pathway Plots Preview
+                   
+                   output$Pathways<- renderPlot({
+                     req(plotdataframes)
+                     ggplot(plotdataframes, aes(x = Enrichment, y = log10Pvalue, label = Label)) + 
+                       geom_point(aes(color = log10Pvalue)) + 
+                       scale_color_gradient(low = "Yellow", high = "Red") + 
+                       ggrepel::geom_text_repel() + 
+                       theme_classic()+
+                       facet_wrap(~sample, ncol = 1)
+                   }
+                   )
+                   
+                   
+                   output$AnalysisComplete <- 
+                     renderUI({ 
+                       show_alert(
+                         title= "Analysis Complete", 
+                         text= "Please hit the Download Files button to download analysis results", 
+                         type="success", 
+                         btn_labels="Ok",
+                         closeOnClickeOutside=TRUE,
+                         ShowCloseButton=TRUE,
+                       )
+                       
+                       
+                     })
+                   
+                   remove_modal_spinner()
+                   
+                   
+                 })
 }
-
-
-
-

@@ -66,16 +66,27 @@ ui <- navbarPage(
                
                h4("Quality Control"),
                numericInput(
-                 "missingness",
-                 "Remove metabolites with % missingness greater than or equal to:",
-                 90,
-                 min = 0,
+                 "wholeMissingness",
+                 "Remove metabolites with total % missingness greater than or equal to:",
+                 99,
+                 min = 50,
                  max = 100
                ),
+               numericInput(
+                 "groupMissingness",
+                 "Remove metabolite if % missingness in all groups exceeds:",
+                 50,
+                 min = 50,
+                 max = 75
+               ),
+
+               checkboxInput("scalingQC", "Pareto scale data.", TRUE),
+               checkboxInput("transformQC", "Log2 transform data.", TRUE),
                checkboxInput("outlierRemove", "Remove outlier samples.", FALSE),
                
                h4("Groups"),
                uiOutput("Groups"),
+               actionButton("selectGroups", "Select Groups"),
                
                fluidRow(id = "relevelRow",
                         
@@ -91,7 +102,7 @@ ui <- navbarPage(
                         column(
                           6, actionButton("relevel", "Relevel Groups")
                         ),),
-               actionButton("selectGroups", "Select Groups"),
+               
                textOutput("potato"),
                
                
@@ -128,6 +139,7 @@ ui <- navbarPage(
                p("Upload your data in the panel to the left to preview."),
                
                tableOutput("viewInputTable"),
+               textOutput("dimensionOutput"),
                
                conditionalPanel(condition = "input.outlierRemove.indexOf('TRUE') > -1",
                                 htmlOutput("outliers")),
@@ -150,10 +162,8 @@ ui <- navbarPage(
            )),
   
   
-  
-  #Works on its own
   #MetaboAnalyst Tab
-  tabPanel("MetaboAnalyst",
+  tabPanel("MetaboAnalyst & IPS",
            
            sidebarLayout(
              # Sidebar panel for inputs ----
@@ -165,8 +175,8 @@ ui <- navbarPage(
                
                # Input: text ----
                textInput(
-                 "plotTitles",
-                 "Type a title for your outputs:",
+                 "AnalysisName",
+                 "Type a title for your analysis outputs:",
                  value = "",
                  width = NULL,
                  placeholder = NULL
@@ -175,7 +185,7 @@ ui <- navbarPage(
                # Input: Select a file ----
                fileInput(
                  "file3",
-                 "Upload p-value table as CSV file:",
+                 "Upload p-value table(s) as CSV file:",
                  multiple = TRUE,
                  accept = c("text/csv",
                             "text/comma-separated-values,text/plain",
@@ -223,23 +233,47 @@ ui <- navbarPage(
                  
                ),
                
+               
+               tags$h1(""),
                actionButton("SubmitMA", "Submit Data"),
+               uiOutput("AnalysisComplete"),
                
              ),
              
              # Main panel for displaying outputs ----
              mainPanel(
-               h3("Data Preview"),
-               p("Upload your data in the panel to the left to preview."),
+               uiOutput("metaboAnalystInstalled"),
+               tabsetPanel(type="tabs", 
+                           tabPanel("MetaboAnalyst Functional Analysis", 
+                                    h3("Functional Analysis Results"),
+                                    downloadButton('downloadfiles', "Download Files"),
+                                    imageOutput("Pathways")),
+                           
+                           
+                           tabPanel("The Index of Pathway Significance", 
+                                    
+                                    h3("IPS Value Table"),
+                                    tableOutput("IPS"),
+                                    downloadButton('downloadIPS', "Download IPS Table"),
+                                    
+                                    h3("IPS Heatmap"),
+                                    fluidRow(
+                                      column(4,
+                                             selectInput(inputId = "orderBySelector", label = "Column to order by", choices = NULL),
+                                             
+                                      ),
+                                      column(4,
+                                             checkboxInput("IPSclustCol", "Cluster columns", FALSE),
+                                             checkboxInput("IPSclustRow", "Cluster rows", FALSE),
+                                             checkboxInput("naToZero", "Treat missing values as zeros", FALSE),
+                                      ),
+                                    ),
+                                    
+                                    plotOutput("IPSHeatmap"),
+                           )
+                           
+               ),
                
-               h3("The Index of Pathway Significance"),
-               h4("IPS Table Preview"),
-               tableOutput("IPS"),
-               downloadButton('downloadIPS', "Download IPS Table"),
-               plotOutput("IPSHeatmap"),
-               
-               h3("Functional Analysis Results"),
-               downloadButton('downloadfiles', "Download Files"),
              )
            )),
   

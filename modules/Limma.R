@@ -11,9 +11,14 @@ generateLimmaServer <-
   function(id, transdf, plotTitle, groupIdentities) {
     moduleServer(id, function(input, output, session) {
       makeTopTable <- function(transdf) {
+        
         #Expression data
         assayData <-
           as.matrix(t(transdf[, 1:(length(names(transdf)) - 1)]))
+        
+        # Quality control functions
+        if (!input$transformQC) assayData <- logTransform(assayData)
+        if (!input$scalingQC) assayData <- paretoScale(assayData)
         
         #phenotype data
         pData <- data.frame(Group = transdf$Group)
@@ -34,7 +39,7 @@ generateLimmaServer <-
           featureData = FeatureData
         )
         
-        
+
         #Create a model matrix
         design <- model.matrix( ~ Group, data = pData(eSet))
         
@@ -43,6 +48,7 @@ generateLimmaServer <-
         
         # Calculate the t-stat
         fit <- eBayes(fit)
+        
         
         # Summarize the results
         #results <- decideTests(fit[,"Groupgroup2"])
@@ -64,19 +70,17 @@ generateLimmaServer <-
         for (i in 2:FileNumber) {
           ns <- session$ns
           
-          plot_output_list[[length(plot_output_list) + 1]] <-
-            htmlOutput(ns(paste0("LimmaTitle", i)))
-          plot_output_list[[length(plot_output_list) + 1]] <-
-            tableOutput(ns(paste0("toptable", i)))
-          plot_output_list[[length(plot_output_list) + 1]] <-
-            downloadButton(ns(paste0('downloadToptable', i)), "Download Table")
-          plot_output_list[[length(plot_output_list) + 1]] <-
+          plot_output_list <- append(plot_output_list, list(htmlOutput(ns(paste0("LimmaTitle", i)))))
+          plot_output_list <- append(plot_output_list, list(tableOutput(ns(paste0("toptable", i)))))
+          plot_output_list <- append(plot_output_list, list(downloadButton(ns(paste0('downloadToptable', i)), "Download Table")))
+          plot_output_list <- append(plot_output_list, list(
             withSpinner(
               plotOutput(ns(paste0(
                 "eachVolcano", i
               )), width = "100%", height = "400px"),
               type = getOption("spinner.type", default = 5)
             )
+          ))
           
         }
         
