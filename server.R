@@ -63,6 +63,10 @@ server <- function(input, output, session) {
       workingDf <- workingDf[, which(colSums(workingDf) > 0), drop = FALSE]
       groupIdentities <- groupIdentities[names(workingDf),, drop = FALSE] # be consistent with groupIdenetities
       
+      # Quality control functions
+      if (input$transformQC) workingDf <- logTransform(workingDf)
+      if (input$scalingQC) workingDf <- paretoScale(workingDf)
+      
       # Reset the row names to be the values of m/z for display purposes
       workingDf$Key <- rownames(workingDf)
       workingDf <- merge(key, workingDf, by = "Key")
@@ -237,11 +241,6 @@ server <- function(input, output, session) {
           key <<- workingDf[, 1:2]
           workingDf$m.z <- NULL
           
-          
-          # Quality control functions
-          if (input$transformQC) workingDf[, c(2:length(colnames(workingDf)))] <<- logTransform(workingDf[, c(2:length(colnames(workingDf)))])
-          if (input$scalingQC) workingDf[, c(2:length(colnames(workingDf)))] <<- paretoScale(workingDf[, c(2:length(colnames(workingDf)))])
-
           transdf <- as.data.frame(t(workingDf[, c(2:length(colnames(workingDf)))]))
           transdf <- as.data.frame(sapply(transdf, as.numeric))
           colnames(transdf) <- workingDf$key
