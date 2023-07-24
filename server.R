@@ -1,5 +1,5 @@
 server <- function(input, output, session) {
-  
+
   options(shiny.maxRequestSize=200*1024^2) # Allow users to upload large files
   myData <- reactiveValues() # This allows you to define variables that will carry across functions
   
@@ -421,7 +421,7 @@ server <- function(input, output, session) {
       if ("lasso" %in% input$Plots) {
         
         req(transdf)
-        generateLassoServer("lassoMod", transdf, input$plotTitles)
+        generateLassoServer("lassoMod", transdf, input$plotTitles, myData$groupIdentities)
         
       } else { hideTab("plots", target = "Lasso") }
       
