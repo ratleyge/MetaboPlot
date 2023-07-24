@@ -22,7 +22,6 @@ library(shinyWidgets)
 library(png)
 library(gridExtra)
 library(fitdistrplus)
-library(plotly)
 
 options(download.file.method = "wininet")
 

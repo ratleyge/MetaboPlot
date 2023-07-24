@@ -10,6 +10,9 @@ server <- function(input, output, session) {
     output$viewInputTable <- renderTable({
       
       req(input$file1)
+      # REQUIRE CSV HERE
+      # TODO: ADD FUNCTIONALITY TO ALLOW .XSL AND .TSV
+      
       workingDf <- read.csv(input$file1$datapath) # Read the file
       
       # remove rows with na's, MeatboScape will sometimes have empty rows with all na at the bottom
