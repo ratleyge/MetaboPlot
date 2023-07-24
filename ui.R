@@ -9,20 +9,20 @@ ui <- navbarPage(
   title = "MetaboPlot",
   
   # App title ----
-  # tabPanel(
-  #   "About",
-  #   class = "about",
-  #   img(
-  #     src = 'Logo.jpg',
-  #     height = "200px",
-  #     width = "100px"
-  #   ),
-  #   h2("Welcome!"),
-  #   p(
-  #     "I have made some tools for the ETU lab to process their metabolomics data. Hope they help :)"
-  #   )
-  # ),
-  
+  tabPanel(
+    "About",
+    class = "about",
+    img(
+      src = 'Logo.jpg',
+      height = "200px",
+      width = "100px"
+    ),
+    h2("Welcome!"),
+    p(
+      "I have made some tools for the ETU lab to process their metabolomics data. Hope they help :)"
+    )
+  ),
+
   # Sidebar layout with input and output definitions ----
   tabPanel("Analyze",
            
@@ -52,7 +52,7 @@ ui <- navbarPage(
                             "text/comma-separated-values,text/plain",
                             ".csv")
                ),
-               
+
                radioButtons(
                  "metAnnotations",
                  label = "Include annotations:",

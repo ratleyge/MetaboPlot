@@ -8,7 +8,7 @@ generateLimmaUI <- function (id) {
 
 
 generateLimmaServer <-
-  function(id, transdf, plotTitle, groupIdentities) {
+  function(id, transdf, plotTitle, groupIdentities, transformQC, scalingQC) {
     moduleServer(id, function(input, output, session) {
       makeTopTable <- function(transdf) {
         
@@ -17,8 +17,8 @@ generateLimmaServer <-
           as.matrix(t(transdf[, 1:(length(names(transdf)) - 1)]))
         
         # Quality control functions
-        if (!input$transformQC) assayData <- logTransform(assayData)
-        if (!input$scalingQC) assayData <- paretoScale(assayData)
+        if (!transformQC) assayData <- logTransform(assayData)
+        if (!scalingQC) assayData <- paretoScale(assayData)
         
         #phenotype data
         pData <- data.frame(Group = transdf$Group)

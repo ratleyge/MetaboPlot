@@ -4,7 +4,7 @@ server <- function(input, output, session) {
   myData <- reactiveValues() # This allows you to define variables that will carry across functions
   
   # Preview Data ----
-    
+
     # This function reads in the intensity table which the user has uploaded
     # It also creates several variables including: workingDf, groupIdentities, and key
     output$viewInputTable <- renderTable({
@@ -78,12 +78,16 @@ server <- function(input, output, session) {
     }) 
   
   output$dimensionOutput <- renderText({
+    
+    # Any time one of these inputs changes, recalculate the data dimensions
     req(input$file1)
     req(input$metAnnotations)
     req(input$wholeMissingness)
     req(input$groupMissingness)
     req(myData$groupIdentities)
+    
     paste0(length(rownames(workingDf)), " peaks across ", length(names(workingDf)), " samples.")
+    
   })
     
   
@@ -406,7 +410,7 @@ server <- function(input, output, session) {
       if ("limma" %in% input$Plots) {
         
         req(transdf)
-        generateLimmaServer("limmaMod", transdf, input$plotTitles, myData$groupIdentities)
+        generateLimmaServer("limmaMod", transdf, input$plotTitles, myData$groupIdentities, input$transformQC, input$scalingQC)
         
       } else { hideTab("plots", target = "Limma") }
       
