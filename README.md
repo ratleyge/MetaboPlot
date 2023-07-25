@@ -9,7 +9,8 @@
 install.packages(
   pkgs = c("factoextra", "tidyr", "pheatmap", "grid", "ggpubr", "ggrepel", "vegan", "limma", "Biobase",
   "shinythemes","glmnet", "glmnetUtils", "caret", "dplyr", "zip", "shinycssloaders", "MetaboAnalystR",
-  "filesstrings", "shinybusy", "rjson", "shinyWidgets", "png", "gridExtra", "fitdistrplus", "BiocManager"), 
+  "filesstrings", "shinybusy", "rjson", "shinyWidgets", "png", "gridExtra", "fitdistrplus", "BiocManager",
+  "xlsx"), 
   repos = 'http://cran.rstudio.com/'
 )
 BiocManager::install("limma")

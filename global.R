@@ -22,6 +22,7 @@ library(shinyWidgets)
 library(png)
 library(gridExtra)
 library(fitdistrplus)
+library(xlsx)
 
 options(download.file.method = "wininet")
 
@@ -35,6 +36,7 @@ source("modules/QCfunctions.R")
 tempdirect <- paste0(tempdir(), "FunctionalAnalysis", "/")
 
 # Use MIME types only for this list - fileName$type will output only MIME types
+# If you add a new type, the logic in server.R also needs to be updated to include it.
 acceptedFileTypes <- c("text/csv")
 # We will add the following soon
 # .xls  - application/vnd.ms-excel

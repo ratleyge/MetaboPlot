@@ -10,9 +10,11 @@ server <- function(input, output, session) {
     output$viewInputTable <- renderTable({
       
       req(input$file1)
+      inputFileType <- input$file1$type
+      print(input$file1$datapath)
       
-      # Check that the file is of the right type, and attempt to read it
-      if(!input$file1$type %in% acceptedFileTypes) {
+      # Check that the file is of the accepted file types (in global.R), and attempt to read it
+      if(!inputFileType %in% acceptedFileTypes) {
         fileTypeString <- toString(acceptedFileTypes)
         
         showModal(modalDialog(
@@ -20,9 +22,21 @@ server <- function(input, output, session) {
           paste("Please use a supported file type. Currently we support:", toString(acceptedFileTypes))
         ))
         break
-      } else if(input$file1$type == "text/csv") {
+      } else if(inputFileType == "text/csv") {
         workingDf <- read.csv(input$file1$datapath)
+      } else if(inputFileType == "application/vnd.ms-excel" | 
+                inputFileType == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+        # If the file is >= 50MB, then use the large file reader.
+        if(file.info(input$file1$datapath)$size < 50*1024^2) {
+          workingDf <- read.xlsx(input$file1$datapath, 1)
+        } else {
+          workingDf <- read.xlsx2(input$file1$datapath, 1)
+        }
+      } else if(inputFileType == "text/tab-separated-values") {
+        workingDf <- read.delim(input$file1$datapath)
       } else {
+        # Code should never reach this point. This means a file type was added to 
+        # acceptedFileTypes but not coded into the logic statement above.
         warning("File type is listed as supported, but no implementation found. Code changes needed.")
         showModal(modalDialog(
           title = "Valid Unsupported File Type", easyClose = TRUE, fade = FALSE,
@@ -31,8 +45,6 @@ server <- function(input, output, session) {
         ))
         break
       }
-      # TODO: ADD FUNCTIONALITY TO ALLOW .XSL AND .TSV (add more ELSE-IFs)
-      
       
       # remove rows with na's, MeatboScape will sometimes have empty rows with all na at the bottom
       workingDf <- rbind(workingDf[1, ], na.omit(workingDf)) 
