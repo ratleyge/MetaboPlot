@@ -10,10 +10,29 @@ server <- function(input, output, session) {
     output$viewInputTable <- renderTable({
       
       req(input$file1)
-      # REQUIRE CSV HERE
-      # TODO: ADD FUNCTIONALITY TO ALLOW .XSL AND .TSV
       
-      workingDf <- read.csv(input$file1$datapath) # Read the file
+      # Check that the file is of the right type, and attempt to read it
+      if(!input$file1$type %in% acceptedFileTypes) {
+        fileTypeString <- toString(acceptedFileTypes)
+        
+        showModal(modalDialog(
+          title = "Invalid File Type", easyClose = TRUE, fade = FALSE,
+          paste("Please use a supported file type. Currently we support:", toString(acceptedFileTypes))
+        ))
+        break
+      } else if(input$file1$type == "text/csv") {
+        workingDf <- read.csv(input$file1$datapath)
+      } else {
+        warning("File type is listed as supported, but no implementation found. Code changes needed.")
+        showModal(modalDialog(
+          title = "Valid Unsupported File Type", easyClose = TRUE, fade = FALSE,
+          paste("There's no code to denote how to read in the file type - we must've added",
+                "it to the support list too early. Please try a different file type.")
+        ))
+        break
+      }
+      # TODO: ADD FUNCTIONALITY TO ALLOW .XSL AND .TSV (add more ELSE-IFs)
+      
       
       # remove rows with na's, MeatboScape will sometimes have empty rows with all na at the bottom
       workingDf <- rbind(workingDf[1, ], na.omit(workingDf)) 

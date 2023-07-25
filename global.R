@@ -34,6 +34,13 @@ source("modules/QCfunctions.R")
 
 tempdirect <- paste0(tempdir(), "FunctionalAnalysis", "/")
 
+# Use MIME types only for this list - fileName$type will output only MIME types
+acceptedFileTypes <- c("text/csv")
+# We will add the following soon
+# .xls  - application/vnd.ms-excel
+# .xlsx - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+# .tsv  - text/tab-separated-values
+
 onStop(function() {
   cat("This will run on app stop\n")
   print(ls(envir = .GlobalEnv))

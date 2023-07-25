@@ -48,9 +48,7 @@ ui <- navbarPage(
                  "file1",
                  "Upload feature table:",
                  multiple = TRUE,
-                 accept = c("text/csv",
-                            "text/comma-separated-values,text/plain",
-                            ".csv")
+                 accept = acceptedFileTypes
                ),
 
                radioButtons(
