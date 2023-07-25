@@ -185,6 +185,7 @@ server <- function(input, output, session) {
       workingDf <<- workingDf[,c("m.z", rownames(groupIdentities))]
       updateSelectInput(session = session, inputId = "relevelSelector", choices = levels(groupIdentities$Group))
       
+      removeModal()
     })
     
   
